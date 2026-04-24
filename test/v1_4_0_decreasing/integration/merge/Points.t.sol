@@ -1,0 +1,268 @@
+pragma solidity ^0.8.17;
+
+import {EscrowBase} from "../../base/EscrowBase.sol";
+
+import {console2 as console} from "forge-std/console2.sol";
+import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
+import {DAO} from "@aragon/osx/core/dao/DAO.sol";
+import {Multisig, MultisigSetup} from "@aragon/multisig/src/MultisigSetup.sol";
+import {MockERC20} from "@mocks/MockERC20.sol";
+
+import {ProxyLib} from "@libs/ProxyLib.sol";
+
+import {
+    Clock,
+    IClock,
+    Lock,
+    VotingEscrow,
+    IVotingEscrowDecreasing,
+    IEscrowCurveDecreasing,
+    IVotingEscrowDecreasing,
+    IVotingEscrowCoreErrors,
+    IMerge,
+    ISplit,
+    ILockedBalanceIncreasing,
+    IEscrowCurveGlobalStorage,
+    IEscrowCurveTokenStorage,
+    IEscrowCurveGlobalStorage
+} from "../../versions.sol";
+
+contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, EscrowBase {
+    function setUp() public override {
+        super.setUp();
+
+        super.mintAndApproveEscrow();
+    }
+
+    function test_Merge_WhenNotMature_SameStartDate() public {
+        // 1. on `from` token point, bias and slope must become 0. `start` should stay the same and current timestamp updated.
+        // 2. on `to` token point, bias and slope must include both token's bias and slope. `start` should stay the same and current timestamp updated.
+        // 3. latest global point  must have the same data as the latest token point of `to`.
+        // 3. Since `to` tokens is not mature yet, end is in the future, so slopeChanges must still contain the sum of both slopes.
+        uint256 from = escrow.createLock(Lock_2_Amount, MAX_TIME);
+        uint256 to = escrow.createLock(Lock_1_Amount, MAX_TIME);
+
+        uint256 weekStartTs = weekStartTs(block.timestamp);
+
+        escrow.merge(from, to);
+
+        uint256 fromLatestEpoch = curve.tokenPointLatestIndex(from);
+        assertEq(fromLatestEpoch, 1);
+
+        // 1
+        assertTokenPoint(from, 1, 0, 0, weekStartTs);
+
+        int256 currentTotalBiasFP = biasFP(Lock_1_Amount, 0) +
+            biasFP(Lock_2_Amount, 0);
+
+        int256 totalSlopeFP = slopeFP(Lock_1_Amount) + slopeFP(Lock_2_Amount);
+
+        // 2
+        // since merge occured in the same block as `createLock`,
+        // it should not cause extra epoch for user.
+        assertTokenPoint(
+            to, // tokenId
+            1, // latestIndex
+            currentTotalBiasFP,
+            totalSlopeFP,
+            weekStartTs
+        );
+
+        // 3
+        assertGlobalPoint(1, currentTotalBiasFP, totalSlopeFP, weekStartTs);
+
+        // 4
+        assertEq(slopeChanges(weekStartTs + maxTime), totalSlopeFP);
+    }
+
+    function test_Merge_WhenMature_SameStartDate() public {
+        // 1. on `from` token point, bias and slope must become 0. `start` should stay the same and current timestamp updated.
+        // 2. on `to` token point, bias must be the sum of both token's maxed out values. Slope must be 0 as it's already maxed out.
+        // `start` should stay the same and current timestamp updated.
+        // 3. last global point must have slope 0 and bias as sum of both token's maxed out values.
+        // 4. Since both have the same end and is in the past, slopeChanges must still be the same of both slopes.
+        uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
+
+        uint256 lockStartTs = weekStartTs(block.timestamp);
+
+        uint256 end = lockStartTs + maxTime;
+        int256 Lock_1_min = biasFP(Lock_1_Amount, end - lockStartTs - 1);
+        int256 Lock_2_min = biasFP(Lock_2_Amount, end - lockStartTs - 1);
+
+        vm.warp(end + 1 hours);
+        escrow.merge(from, to);
+
+        uint256 mergeTs = weekStartTs(block.timestamp);
+
+        // 1
+        assertTokenPoint(from, 2, 0, 0, mergeTs);
+
+        // 2
+        // since merge occured in the different block than `createLock`,
+        // it should  cause extra epoch for user.
+        int256 totalSlopeFP = slopeFP(Lock_1_Amount + Lock_2_Amount);
+
+        assertTokenPoint(to, 2, 0, 0, mergeTs);
+
+        // 3
+        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 1;
+        assertGlobalPoint(lastIndex, 0, 0, mergeTs);
+
+        // 4
+        assertEq(slopeChanges(end), totalSlopeFP);
+    }
+
+    function test_Merge_WhenMature_DifferentStartDates() public {
+        // 1. on `from` token point, bias and slope must become 0. `start` should stay the same and current timestamp updated.
+        // 2. on `to` token point, bias must be the sum of both token's maxed out values. Slope must be 0 as it's already maxed out.
+        // `start` should stay the same and current timestamp updated.
+        // 3. last global point must have slope 0 and bias as sum of both token's maxed out values.
+        // 4. Since `to`'s end is greater than `from`'s end, and we make `from` to become 0, `to`'s slope change must also include `to`'s slope.
+        uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
+
+        uint256 fromLockWeekStart = weekStartTs(block.timestamp);
+        uint256 fromLockEnd = fromLockWeekStart + maxTime;
+
+        vm.warp(block.timestamp + checkpointInterval);
+        uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
+
+        uint256 toLockWeekStart = weekStartTs(block.timestamp);
+        uint256 toLockEnd = toLockWeekStart + maxTime;
+
+        // we merge after both are mature.
+        vm.warp(toLockEnd + 1 hours);
+        escrow.merge(from, to);
+
+        uint256 mergeTs = weekStartTs(block.timestamp);
+
+        // 1
+        assertTokenPoint(
+            from, // tokenId
+            2, // latestIndex
+            0,
+            0,
+            mergeTs
+        );
+
+        int256 currentTotalBiasFP = biasFPCapped(Lock_1_Amount, fromLockEnd - fromLockWeekStart) +
+            biasFPCapped(Lock_2_Amount, toLockEnd - toLockWeekStart);
+
+        // 2
+        assertTokenPoint(
+            to, // tokenId
+            2, // latestIndex
+            currentTotalBiasFP,
+            0,
+            mergeTs
+        );
+
+        // 3
+        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 1;
+        assertGlobalPoint(lastIndex, currentTotalBiasFP, 0, mergeTs);
+
+        // 4
+        assertEq(slopeChanges(fromLockEnd), slopeFP(Lock_1_Amount));
+        assertEq(slopeChanges(toLockEnd), slopeFP(Lock_2_Amount));
+    }
+
+    function testFuzz_Merge(
+        uint184 _lock1Amount,
+        uint184 _lock2Amount,
+        uint48 _fromLockTime,
+        uint48 _toLockTime,
+        uint48 _mergeTime
+    ) public {
+        (_fromLockTime, _toLockTime, _mergeTime) = boundLockCreationFuzzTimes(
+            _fromLockTime,
+            _toLockTime,
+            _mergeTime
+        );
+
+        vm.assume(_toLockTime >= _fromLockTime && _mergeTime >= _toLockTime);
+        _lock1Amount = uint184(getFlooredAmount(uint256(_lock1Amount)));
+        _lock2Amount = uint184(getFlooredAmount(uint256(_lock2Amount)));
+        vm.assume(_lock1Amount > 0 && _lock2Amount > 0);
+
+        // If start dates of locks don't match,
+        // in order to merge, both tokens have to be mature.
+        // So we restrict `_mergeTime` to be greater than
+        // both token's maturity date.
+        if (_fromLockTime != _toLockTime) {
+            vm.assume(_mergeTime > weekStartTs(_toLockTime) + maxTime);
+        }
+
+        mintAndApproveEscrow(uint256(_lock1Amount) + uint256(_lock2Amount));
+
+        // Create 2 locks on fuzzed times and
+        // merge them on fuzzed time as well.
+        vm.warp(_fromLockTime);
+        uint256 from = escrow.createLock(_lock1Amount, MAX_TIME);
+        vm.warp(_toLockTime);
+        uint256 to = escrow.createLock(_lock2Amount, MAX_TIME);
+        vm.warp(_mergeTime);
+        escrow.merge(from, to);
+
+        uint256 fromLockWeekTs = weekStartTs(_fromLockTime);
+        uint256 toLockWeekTs = weekStartTs(_toLockTime);
+        uint256 fromLockEnd = fromLockWeekTs + maxTime;
+        uint256 toLockEnd = toLockWeekTs + maxTime;
+        uint256 mergeWeekTs = weekStartTs(_mergeTime);
+
+        vm.warp(block.timestamp + 1 weeks);
+
+        assertTokenPoint(
+            from,
+            // If the dates match, it should use
+            // a single block/record for gas efficiency,
+            // otherwise 2.
+            mergeWeekTs == fromLockWeekTs ? 1 : 2,
+            0,
+            0,
+            mergeWeekTs
+        );
+
+
+        {
+            int256 bias;
+
+            if (_mergeTime >= toLockEnd) {
+                bias = biasFPCapped(_lock1Amount, maxTime) + biasFPCapped(_lock2Amount, maxTime);
+            } else {
+                bias =
+                    biasFPCapped(_lock1Amount, mergeWeekTs - fromLockWeekTs) +
+                    biasFPCapped(_lock2Amount, mergeWeekTs - toLockWeekTs);
+            }
+
+            int256 slope = 0;
+            if (_mergeTime < toLockEnd) {
+                slope = slopeFP(_lock1Amount) + slopeFP(_lock2Amount);
+            }
+
+            assertTokenPoint(
+                to,
+                // If the dates match, it should use
+                // a single block/record for gas efficiency,
+                // otherwise 2.
+                mergeWeekTs == toLockWeekTs ? 1 : 2,
+                bias,
+                slope,
+                mergeWeekTs
+            );
+
+            assertGlobalPoint(
+                expectedIndex(_fromLockTime, _toLockTime, _mergeTime),
+                bias,
+                slope,
+                mergeWeekTs
+            );
+        }
+
+        if (fromLockWeekTs == toLockWeekTs) {
+            assertEq(slopeChanges(toLockEnd), slopeFP(_lock1Amount) + slopeFP(_lock2Amount));
+        } else {
+            assertEq(slopeChanges(fromLockEnd), slopeFP(_lock1Amount));
+            assertEq(slopeChanges(toLockEnd), slopeFP(_lock2Amount));
+        }
+    }
+}
