@@ -35,7 +35,7 @@ import {CurveConstantLib} from "@libs/CurveConstantLib.sol";
 import {SignedFixedPointMath} from "@libs/SignedFixedPointMathLib.sol";
 import {DelegationHelper} from "./DelegationHelper.sol";
 
-contract EscrowIVotesAdapter is
+contract EscrowIVotesAdapterDecreasing is
     IERC6372,
     ReentrancyGuard,
     Pausable,
@@ -52,9 +52,7 @@ contract EscrowIVotesAdapter is
     bytes32 public constant DELEGATION_TOKEN_ROLE = keccak256("DELEGATION_TOKEN_ROLE");
 
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-    int256 public immutable SHARED_QUADRATIC_COEFFICIENT;
-    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-    int256 public immutable SHARED_LINEAR_COEFFICIENT;
+    int256 public immutable SHARED_LINEAR_DENOMINATOR;
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
     int256 public immutable SHARED_CONSTANT_COEFFICIENT;
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
@@ -77,10 +75,9 @@ contract EscrowIVotesAdapter is
     //////////////////////////////////////////////////////////////*/
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(int256[3] memory _coefficients, uint256 _maxEpochs) {
+    constructor(int256[2] memory _coefficients, uint256 _maxEpochs) {
         SHARED_CONSTANT_COEFFICIENT = _coefficients[0];
-        SHARED_LINEAR_COEFFICIENT = _coefficients[1];
-        SHARED_QUADRATIC_COEFFICIENT = _coefficients[2];
+        SHARED_LINEAR_DENOMINATOR = _coefficients[1];
 
         MAX_EPOCHS = _maxEpochs;
 
@@ -589,7 +586,7 @@ contract EscrowIVotesAdapter is
 
         int256 amount = uint256(_locked.amount).toInt256();
 
-        int256 slope = amount * SHARED_LINEAR_COEFFICIENT;
+        int256 slope = amount * 1e18 / SHARED_LINEAR_DENOMINATOR;
         int256 bias = slope *
             int256(elapsed) +
             amount *
