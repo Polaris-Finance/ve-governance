@@ -421,7 +421,7 @@ contract EscrowIVotesAdapter is
                 lastPoint.bias += lastPoint.slope * int256(t_i - lastPointCheckpoint);
                 lastPoint.slope -= dSlope;
 
-                if (lastPoint.slope < 0) lastPoint.slope = 0;
+                if (lastPoint.slope > 0) lastPoint.slope = 0;
                 if (lastPoint.bias < 0) lastPoint.bias = 0;
 
                 lastPointCheckpoint = t_i;
@@ -438,7 +438,7 @@ contract EscrowIVotesAdapter is
         lastPoint.slope += _totalSlope;
         lastPoint.writtenTs = uint48(expectedWrittenTs);
 
-        if (lastPoint.slope < 0) lastPoint.slope = 0;
+        if (lastPoint.slope > 0) lastPoint.slope = 0;
         if (lastPoint.bias < 0) lastPoint.bias = 0;
 
         // If the timestamp of last stored token point is the same as
