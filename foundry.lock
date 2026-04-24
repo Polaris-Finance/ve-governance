@@ -1,0 +1,44 @@
+{
+  "lib/forge-std": {
+    "rev": "bf909b22fa55e244796dfa920c9639fdffa1c545"
+  },
+  "lib/multisig-plugin": {
+    "branch": {
+      "name": "release-v1.3",
+      "rev": "596935de4022470aa993998836ef3899b7e6ff04"
+    }
+  },
+  "lib/openzeppelin-contracts": {
+    "branch": {
+      "name": "v4.9.2",
+      "rev": "e50c24f5839db17f46991478384bfda14acfb830"
+    }
+  },
+  "lib/openzeppelin-contracts-upgradeable": {
+    "branch": {
+      "name": "v4.9.2",
+      "rev": "bc95521e34dcd49792065e264a7ad2b5a86f0091"
+    }
+  },
+  "lib/openzeppelin-foundry-upgrades": {
+    "rev": "cbce1e00305e943aa1661d43f41e5ac72c662b07"
+  },
+  "lib/osx": {
+    "branch": {
+      "name": "release-v1.4",
+      "rev": "ee4b3e4dbb3e6972fc1ce35c6864bfc8c2166b3d"
+    }
+  },
+  "lib/osx-commons": {
+    "branch": {
+      "name": "main",
+      "rev": "6627101992f2d41db2be7eee1696eb3fa81eed02"
+    }
+  },
+  "lib/protocol-factory": {
+    "rev": "c5d3b20b51251d2a391238048de7b814cd8d13ca"
+  },
+  "lib/solmate": {
+    "rev": "97bdb2003b70382996a79a406813f76417b1cf90"
+  }
+}
