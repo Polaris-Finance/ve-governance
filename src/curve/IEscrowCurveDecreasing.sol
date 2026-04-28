@@ -11,15 +11,13 @@ import {ILockedBalanceIncreasing} from "@escrow/IVotingEscrowIncreasing.sol";
 interface IEscrowCurveTokenStorage {
     /// @notice Captures the shape of the user's voting curve at a specific point in time
     /// @param bias The y intercept of the user's voting curve at the given time
-    /// @param checkpointTs The checkpoint when the user voting curve is/was/will be updated
-    /// @param writtenTs The timestamp at which we locked the checkpoint
+    /// @param writtenTs The timestamp at which we locked the checkpoint / when the user voting curve is/was/will be updated
     /// @param coefficients The coefficients of the curve, supports up to quadratic curves.
     /// @dev Coefficients are stored in the following order: [constant, linear, quadratic]
     /// and not all coefficients are used for all curves.
     struct TokenPoint {
         uint256 bias;
-        uint128 checkpointTs;
-        uint128 writtenTs;
+        uint256 writtenTs;
         int256[3] coefficients;
     }
 }

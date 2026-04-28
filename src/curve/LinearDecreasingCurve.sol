@@ -288,16 +288,15 @@ contract LinearDecreasingCurve is
         }
 
         {
-            uint256 checkpointInterval = IClock(clock).checkpointInterval();
+
+            uint256 lastPointCheckpoint = lastPoint.writtenTs;
+            (uint256 t_i, uint256 checkpointInterval) = IClock(clock).normalizeTimestamp(lastPointCheckpoint);
 
             // For safety reasons, we don't allow checkpoints
             // on the exact checkpointInterval.
             if (block.timestamp % checkpointInterval == 0) {
                 revert CheckpointOnDepositIntervalNotAllowed();
             }
-
-            uint256 lastPointCheckpoint = lastPoint.writtenTs;
-            uint256 t_i = (lastPointCheckpoint / checkpointInterval) * checkpointInterval;
 
             for (uint256 i = 0; i < 255; ++i) {
                 t_i += checkpointInterval;
@@ -390,8 +389,7 @@ contract LinearDecreasingCurve is
 
         // Create new token point and store.
         TokenPoint memory tNew;
-        tNew.writtenTs = uint128(block.timestamp);
-        tNew.checkpointTs = _newLocked.start;
+        tNew.writtenTs = _newLocked.start;
         tNew.coefficients = [newLockBias, newLockSlope, 0];
 
         // Record the latest token point.
@@ -405,7 +403,7 @@ contract LinearDecreasingCurve is
         // current timestamp, overwrite it, otherwise store a new one
         // to reduce unnecessary global points in the history for
         // gas costs and binary search efficiency.
-        if (_index != 1 && _globalPointHistory[_index - 1].writtenTs == block.timestamp) {
+        if (_index != 1 && _globalPointHistory[_index - 1].writtenTs == _p.writtenTs) {
             _globalPointHistory[_index - 1] = _p;
         } else {
             globalPointLatestIndex = _index;
@@ -424,7 +422,7 @@ contract LinearDecreasingCurve is
         // current timestamp, overwrite it, otherwise store a new one
         // to reduce unnecessary global points in the history for
         // gas costs and binary search efficiency.
-        if (_index != 0 && _tokenPointHistory[_tokenId][_index].writtenTs == block.timestamp) {
+        if (_index != 0 && _tokenPointHistory[_tokenId][_index].writtenTs == _p.writtenTs) {
             _tokenPointHistory[_tokenId][_index] = _p;
         } else {
             tokenPointLatestIndex[_tokenId] = ++_index;
@@ -512,9 +510,7 @@ contract LinearDecreasingCurve is
         int256 slope = _point.slope;
         uint256 ts = _point.writtenTs; // changes in for loop.
 
-        uint256 checkpointInterval = IClock(clock).checkpointInterval();
-
-        uint256 t_i = (ts / checkpointInterval) * checkpointInterval;
+        (uint256 t_i, uint256 checkpointInterval) = IClock(clock).normalizeTimestamp(ts);
 
         for (uint256 i = 0; i < 255; ++i) {
             t_i += checkpointInterval;

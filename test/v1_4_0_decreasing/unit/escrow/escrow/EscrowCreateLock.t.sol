@@ -143,7 +143,7 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
 
             assertEq(checkpoint.coefficients[0], biasFP(_value, block.timestamp - virtualStartTime));
             assertEq(checkpoint.coefficients[1], slopeFP(_value));
-            assertEq(checkpoint.checkpointTs, virtualStartTime);
+            assertEq(checkpoint.writtenTs, virtualStartTime);
         }
     }
 

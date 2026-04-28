@@ -76,7 +76,6 @@ contract TestDecreasingCurve is CurveBase {
         uint256 start = 52 weeks + 1 hours;
 
         uint256 checkpointTs = weekStartTs(start);
-       
 
         // initial conditions, no balance
         assertEq(curve.votingPowerAt(tokenIdFirst, 0), 0, "Balance before deposit");
@@ -85,8 +84,7 @@ contract TestDecreasingCurve is CurveBase {
 
         // still no balance
         assertEq(curve.votingPowerAt(tokenIdFirst, 0), 0, "Balance before deposit");
-        
-        uint256 writtenTs = block.timestamp;
+
         escrow.checkpoint(
             tokenIdFirst,
             LockedBalance(0, 0),
@@ -105,8 +103,7 @@ contract TestDecreasingCurve is CurveBase {
             curve.getBias(block.timestamp - checkpointTs, depositFirst),
             "Bias is incorrect"
         );
-        assertEq(tokenPoint.checkpointTs, checkpointTs, "CP Timestamp is incorrect");
-        assertEq(tokenPoint.writtenTs, writtenTs, "Written Timestamp is incorrect");
+        assertEq(tokenPoint.writtenTs, checkpointTs, "Written Timestamp is incorrect");
 
         assertEq(
             curve.votingPowerAt(tokenIdFirst, block.timestamp),
@@ -133,7 +130,7 @@ contract TestDecreasingCurve is CurveBase {
 
         // Warp to the end of the growth window derived from the current curve config.
         // This remains valid when MAX_EPOCHS is changed in CurveConstantLib.
-        vm.warp(getEndTimestamp(checkpointTs, writtenTs));
+        vm.warp(getEndTimestamp(checkpointTs, checkpointTs));
         assertEq(
             curve.votingPowerAt(tokenIdFirst, block.timestamp),
             expectedMaxI,

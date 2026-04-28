@@ -39,8 +39,7 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         // 1. should be a single entry point in token point and global point history
         // 2. timestamp, start, slope and bias must be correctly set on the token and global point.
         // 3. should schedule a slope change at weekStart + MAX_TIME
-        uint256 currentTs = block.timestamp;
-        uint256 weekStartTs = weekStartTs(currentTs);
+        uint256 weekStartTs = weekStartTs(block.timestamp);
 
         uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
 
@@ -48,17 +47,16 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         assertTokenPoint(
             tokenId,
             1,
-            biasFP(Lock_1_Amount, currentTs - weekStartTs),
+            biasFP(Lock_1_Amount, block.timestamp - weekStartTs),
             slopeFP(Lock_1_Amount),
-            weekStartTs,
-            currentTs
+            weekStartTs
         );
 
         assertGlobalPoint(
             1,
-            biasFP(Lock_1_Amount, currentTs - weekStartTs),
+            biasFP(Lock_1_Amount, block.timestamp - weekStartTs),
             slopeFP(Lock_1_Amount),
-            currentTs
+            weekStartTs
         );
 
         // 3
@@ -73,21 +71,20 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         // 4. should schedule both slopes summed up at weekStart + MAX_TIME
         escrow.createLock(Lock_2_Amount, MAX_TIME);
 
-        uint256 currentTs = block.timestamp;
-        uint256 weekStartTs = weekStartTs(currentTs);
+        uint256 weekStartTs = weekStartTs(block.timestamp);
 
         // 1, 2, 3
-        int256 token1BiasFP = biasFP(Lock_1_Amount, currentTs - weekStartTs);
-        int256 token2BiasFP = biasFP(Lock_2_Amount, currentTs - weekStartTs);
+        int256 token1BiasFP = biasFP(Lock_1_Amount, block.timestamp - weekStartTs);
+        int256 token2BiasFP = biasFP(Lock_2_Amount, block.timestamp - weekStartTs);
 
-        assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), weekStartTs, currentTs);
-        assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs, currentTs);
+        assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), weekStartTs);
+        assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs);
 
         assertGlobalPoint(
             1,
             token1BiasFP + token2BiasFP,
             slopeFP(Lock_1_Amount) + slopeFP(Lock_2_Amount),
-            currentTs
+            weekStartTs
         );
 
         // 4
@@ -107,23 +104,22 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
 
         escrow.createLock(Lock_2_Amount, MAX_TIME);
 
-        uint256 currentTs = block.timestamp;
-        uint256 weekStartTs = weekStartTs(currentTs);
+        uint256 weekStartTs = weekStartTs(block.timestamp);
 
         // 1, 2, 3
         int256 token1BiasFP = biasFP(Lock_1_Amount, Lock_1_ts - Lock_1_start);
-        int256 token2BiasFP = biasFP(Lock_2_Amount, currentTs - weekStartTs);
+        int256 token2BiasFP = biasFP(Lock_2_Amount, block.timestamp - weekStartTs);
 
-        assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), Lock_1_start, Lock_1_ts);
-        assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs, currentTs);
+        assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), Lock_1_start);
+        assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs);
 
         // epoch is 3 because there's a week between the locks
         // which must be updated upon 2nd lock's insert.
         assertGlobalPoint(
             3,
-            biasFP(Lock_1_Amount, currentTs - Lock_1_start) + token2BiasFP,
+            biasFP(Lock_1_Amount, block.timestamp - Lock_1_start) + token2BiasFP,
             slopeFP(Lock_1_Amount) + slopeFP(Lock_2_Amount),
-            currentTs
+            weekStartTs
         );
 
         // 4
@@ -142,18 +138,17 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
 
         escrow.createLock(Lock_2_Amount, MAX_TIME);
 
-        uint256 currentTs = block.timestamp;
-        uint256 weekStartTs = weekStartTs(currentTs);
+        uint256 weekStartTs = weekStartTs(block.timestamp);
 
         uint256 Lock_1_end = Lock_1_start + maxTime;
         uint256 Lock_2_end = weekStartTs + maxTime;
 
         // 1, 2, 3
         int256 token1BiasFP = biasFP(Lock_1_Amount, Lock_1_ts - Lock_1_start);
-        int256 token2BiasFP = biasFP(Lock_2_Amount, currentTs - weekStartTs);
+        int256 token2BiasFP = biasFP(Lock_2_Amount, block.timestamp - weekStartTs);
 
-        assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), Lock_1_start, Lock_1_ts);
-        assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs, currentTs);
+        assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), Lock_1_start);
+        assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs);
 
         // 2, 3
         // lastIndex is `howManyWeeksBetween + 2`. We add 2 because the first lock and last lock.
@@ -163,7 +158,7 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
             lastIndex,
             biasFP(Lock_1_Amount, Lock_1_end - Lock_1_start) + token2BiasFP,
             slopeFP(Lock_2_Amount),
-            currentTs
+            weekStartTs
         );
 
         // 4

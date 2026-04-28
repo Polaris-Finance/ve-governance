@@ -63,12 +63,11 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             2,
             biasFP(Lock_1_Amount - value, elapsed),
             slope1,
-            weekStartTs,
-            block.timestamp
+            weekStartTs
         );
 
         // 2
-        assertTokenPoint(2, 1, biasFP(value, elapsed), slope2, weekStartTs, block.timestamp);
+        assertTokenPoint(2, 1, biasFP(value, elapsed), slope2, weekStartTs);
 
         // 3
         assertGlobalPoint(
@@ -104,12 +103,11 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             2,
             biasFP(Lock_1_Amount - value, elapsed),
             0,
-            weekStartTs,
-            block.timestamp
+            weekStartTs
         );
 
         // 2
-        assertTokenPoint(2, 1, biasFP(value, elapsed), 0, weekStartTs, block.timestamp);
+        assertTokenPoint(2, 1, biasFP(value, elapsed), 0, weekStartTs);
 
         // 3
         uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 2;
@@ -142,7 +140,6 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         vm.warp(_splitTime);
         escrow.split(from, _splitValue);
 
-        uint256 currentTs = block.timestamp;
         uint256 fromLockWeekTs = weekStartTs(_fromLockTime);
         uint256 fromLockEnd = fromLockWeekTs + maxTime;
 
@@ -169,11 +166,10 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
                 _splitTime == _fromLockTime ? 1 : 2,
                 bias1,
                 slope1,
-                fromLockWeekTs,
-                currentTs
+                fromLockWeekTs
             );
 
-            assertTokenPoint(2, 1, bias2, slope2, fromLockWeekTs, currentTs);
+            assertTokenPoint(2, 1, bias2, slope2, fromLockWeekTs);
         }
 
         {
@@ -190,7 +186,7 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
                 expectedIndex(_fromLockTime, _splitTime, _splitTime),
                 bias,
                 slope,
-                currentTs
+                fromLockWeekTs
             );
         }
 
