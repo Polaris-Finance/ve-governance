@@ -194,7 +194,6 @@ contract EscrowBase is
         uint256 _expectedLatestIndex,
         int256 _biasFP,
         int256 _slopeFP,
-        uint256 _checkpointTs,
         uint256 _writtenTs
     ) internal view {
         uint256 tokenLatestIndex = curve.tokenPointLatestIndex(_tokenId);
@@ -202,7 +201,6 @@ contract EscrowBase is
         TokenPoint memory tokenP = curve.tokenPointHistory(_tokenId, tokenLatestIndex);
         assertEq(tokenP.coefficients[0], _biasFP);
         assertEq(tokenP.coefficients[1], _slopeFP);
-        assertEq(tokenP.checkpointTs, _checkpointTs);
         assertEq(tokenP.writtenTs, _writtenTs);
     }
 

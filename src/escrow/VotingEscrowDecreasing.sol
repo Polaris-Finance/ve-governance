@@ -321,7 +321,7 @@ contract VotingEscrowDecreasing is
         return _createLockFor(_value, _duration, _to);
     }
 
-    /// @dev Deposit `_value` tokens for `_to` starting at next deposit interval
+    /// @dev Deposit `_value` tokens for `_to` starting at previous deposit interval
     /// @param _value Amount to deposit
     /// @param _duration For how long the tokens are locked in the NFT
     /// @param _to Address to deposit
@@ -331,7 +331,7 @@ contract VotingEscrowDecreasing is
         uint256 maxTime = IEscrowCurve(curve).maxTime();
         if(_duration > maxTime) revert DurationTooLong();
 
-        // query the duration lib to get the next time we can deposit
+        // query the duration lib to get the last time we could deposit
         uint256 startTime = IClock(clock).epochPrevCheckpointTs();
         // To keep LinearDecreasingCurve simple, we create a virtual timestamp <= current timestamp,
         // so that it seems that all locks were created with max duration
@@ -381,13 +381,19 @@ contract VotingEscrowDecreasing is
     }
 
     // TODO
-    function lockPermanent(uint256 _tokenId) external {}
+    function lockPermanent(uint256 _tokenId) external whenNotPaused {
+        _checkOwner(_tokenId);
+    }
     // TODO
-    function unlockPermanent(uint256 _tokenId) external {}
+    function unlockPermanent(uint256 _tokenId) external whenNotPaused {
+        _checkOwner(_tokenId);
+    }
     // TODO
-    function increaseAmount(uint256 _tokenId, uint256 _value) external {}
+    function increaseAmount(uint256 _tokenId, uint256 _value) external whenNotPaused {}
     // TODO
-    function increaseUnlockTime(uint256 _tokenId, uint256 _duration) external {}
+    function increaseUnlockTime(uint256 _tokenId, uint256 _duration) external whenNotPaused {
+        _checkOwner(_tokenId);
+    }
 
 
     /// @inheritdoc IMerge
@@ -464,18 +470,9 @@ contract VotingEscrowDecreasing is
     function split(uint256 _from, uint256 _value) public whenNotPaused returns (uint256) {
         if (_value == 0) revert ZeroAmount();
 
-        address sender = _msgSender();
-
-        // For some erc721, `ownerOf` reverts and for some,
-        // it returns address(0). For safety, if it doesn't revert,
-        // we also check if it's not address(0).
-        address owner = IERC721EMB(lockNFT).ownerOf(_from);
-        if (owner == address(0)) revert NoOwner();
+        (address sender, address owner) = _checkOwner(_from);
 
         if (!canSplit(owner)) revert SplitNotWhitelisted();
-
-        // Sender must either be approved or the owner.
-        if (!isApprovedOrOwner(sender, _from)) revert NotApprovedOrOwner();
 
         LockedBalance memory locked_ = _locked[_from];
         if (locked_.amount <= _value) revert SplitAmountTooBig();
@@ -510,6 +507,21 @@ contract VotingEscrowDecreasing is
         emit Split(_from, newTokenId, sender, amount1, amount2);
 
         return newTokenId;
+    }
+
+    function _checkOwner(uint256 _tokenId) internal returns (address, address) {
+        address sender = _msgSender();
+
+        // For some erc721, `ownerOf` reverts and for some,
+        // it returns address(0). For safety, if it doesn't revert,
+        // we also check if it's not address(0).
+        address owner = IERC721EMB(lockNFT).ownerOf(_tokenId);
+        if (owner == address(0)) revert NoOwner();
+
+        // Sender must either be approved or the owner.
+        if (!isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
+
+        return (sender, owner);
     }
 
     /// @notice creates a new token in checkpoint and mint.
