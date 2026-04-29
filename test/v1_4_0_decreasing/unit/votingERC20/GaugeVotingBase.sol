@@ -34,7 +34,10 @@ import {
     EscrowIVotesAdapter
 } from "../../versions.sol";
 
+import {FixedPointBase} from "../../base/FixedPointBase.sol";
+
 contract GaugeVotingBase is
+    FixedPointBase,
     Test,
     IGaugeVote,
     IEscrowCurveTokenStorage,
@@ -133,7 +136,7 @@ contract GaugeVotingBase is
 
         voterBase = address(new SimpleGaugeVoter());
 
-        (int256[3] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
+        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
 
         // deploy setup
         voterSetup = new SimpleGaugeVoterSetup(
@@ -142,7 +145,7 @@ contract GaugeVotingBase is
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
         );
 
         // push to the PSP

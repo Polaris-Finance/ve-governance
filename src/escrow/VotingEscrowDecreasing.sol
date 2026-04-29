@@ -89,7 +89,7 @@ contract VotingEscrowDecreasing is
     uint256 public totalLocked;
 
     /// @dev tracks the locked balance of each NFT
-    mapping(uint256 => LockedBalance) private _locked;
+    mapping(uint256 => LockedBalanceDecreasing) private _locked;
 
     /*//////////////////////////////////////////////////////////////
                               Helper Contracts
@@ -272,8 +272,8 @@ contract VotingEscrowDecreasing is
     }
 
     /// @return The details of the underlying lock for a given veNFT
-    function locked(uint256 _tokenId) public view returns (LockedBalance memory) {
-        return _locked[_tokenId];
+    function locked(uint256 _tokenId) external view returns (LockedBalance memory) {
+        return _locked[_tokenId].lockedBalance;
     }
 
     /// @return accountVotingPower The voting power of an account at the current block
@@ -342,11 +342,14 @@ contract VotingEscrowDecreasing is
         uint256 newTokenId = ++lastLockId;
 
         // write the lock and checkpoint the voting power
-        LockedBalance memory lock = LockedBalance(_value.toUint208(), virtualStartTime.toUint48());
+        LockedBalanceDecreasing memory lock = LockedBalanceDecreasing(
+            LockedBalance(_value.toUint208(), virtualStartTime.toUint48()),
+            startTime
+        );
         _locked[newTokenId] = lock;
 
         // we don't allow edits in this implementation, so only the new lock is used
-        _checkpoint(newTokenId, LockedBalance(0, 0), lock);
+        _checkpoint(newTokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), lock);
 
         uint256 balanceBefore = IERC20(token).balanceOf(address(this));
 
@@ -413,10 +416,10 @@ contract VotingEscrowDecreasing is
             revert NotApprovedOrOwner();
         }
 
-        LockedBalance memory oldLockedFrom = _locked[_from];
-        LockedBalance memory oldLockedTo = _locked[_to];
+        LockedBalanceDecreasing memory oldLockedFrom = _locked[_from];
+        LockedBalanceDecreasing memory oldLockedTo = _locked[_to];
 
-        if (!canMerge(oldLockedFrom, oldLockedTo)) {
+        if (!canMerge(oldLockedFrom.lockedBalance, oldLockedTo.lockedBalance)) {
             revert CannotMerge(_from, _to);
         }
 
@@ -426,23 +429,27 @@ contract VotingEscrowDecreasing is
         // We call `_moveDelegateVotes` with empty locked, so it doesn't
         // reduce/increase the same voting power for gas efficiency.
         IEscrowIVotesAdapter(ivotesAdapter).mergeDelegateVotes(
-            IDelegateMoveVoteRecipient.TokenLock(ownerFrom, _from, oldLockedFrom),
-            IDelegateMoveVoteRecipient.TokenLock(ownerFrom, _to, oldLockedTo)
+            IDelegateMoveVoteRecipient.TokenLock(ownerFrom, _from, oldLockedFrom.lockedBalance),
+            IDelegateMoveVoteRecipient.TokenLock(ownerFrom, _to, oldLockedTo.lockedBalance)
         );
 
         // Update for `_from`.
         // Note that on the checkpoint, we still don't
         // remove `start` for historical reasons.
         IERC721EMB(lockNFT).burn(_from);
-        _locked[_from] = LockedBalance(0, 0);
-        _checkpoint(_from, oldLockedFrom, LockedBalance(0, oldLockedFrom.start));
+        _locked[_from] = LockedBalanceDecreasing(LockedBalance(0, 0), 0);
+        _checkpoint(_from, oldLockedFrom, LockedBalanceDecreasing(LockedBalance(0, oldLockedFrom.lockedBalance.start), oldLockedFrom.effectiveStart));
 
         // update for `_to`.
-        uint208 newLockedAmount = oldLockedFrom.amount + oldLockedTo.amount;
-        _checkpoint(_to, oldLockedTo, LockedBalance(newLockedAmount, oldLockedTo.start));
-        _locked[_to] = LockedBalance(newLockedAmount, oldLockedTo.start);
+        uint208 newLockedAmount = oldLockedFrom.lockedBalance.amount + oldLockedTo.lockedBalance.amount;
+        LockedBalanceDecreasing memory newOldLockedTo = LockedBalanceDecreasing(
+            LockedBalance(newLockedAmount, oldLockedTo.lockedBalance.start),
+            oldLockedTo.effectiveStart
+        );
+        _checkpoint(_to, oldLockedTo, newOldLockedTo);
+        _locked[_to] = newOldLockedTo;
 
-        emit Merged(sender, _from, _to, oldLockedFrom.amount, oldLockedTo.amount, newLockedAmount);
+        emit Merged(sender, _from, _to, oldLockedFrom.lockedBalance.amount, oldLockedTo.lockedBalance.amount, newLockedAmount);
     }
 
     /// @inheritdoc IMerge
@@ -474,19 +481,23 @@ contract VotingEscrowDecreasing is
 
         if (!canSplit(owner)) revert SplitNotWhitelisted();
 
-        LockedBalance memory locked_ = _locked[_from];
-        if (locked_.amount <= _value) revert SplitAmountTooBig();
+        LockedBalanceDecreasing memory locked_ = _locked[_from];
+        if (locked_.lockedBalance.amount <= _value) revert SplitAmountTooBig();
 
         // Ensure that amounts of new tokens will be greater than `minDeposit`.
-        uint208 amount1 = locked_.amount - _value.toUint208();
+        uint208 amount1 = locked_.lockedBalance.amount - _value.toUint208();
         uint208 amount2 = _value.toUint208();
         if (amount1 < minDeposit || amount2 < minDeposit) {
             revert AmountTooSmall();
         }
 
         // update for `_from`.
-        _checkpoint(_from, locked_, LockedBalance(amount1, locked_.start));
-        _locked[_from] = LockedBalance(amount1, locked_.start);
+        LockedBalanceDecreasing memory newFromLocked = LockedBalanceDecreasing(
+            LockedBalance(amount1, locked_.lockedBalance.start),
+            locked_.effectiveStart
+        );
+        _checkpoint(_from, locked_, newFromLocked);
+        _locked[_from] = newFromLocked;
 
         uint256 newTokenId = ++lastLockId;
 
@@ -501,7 +512,7 @@ contract VotingEscrowDecreasing is
         );
 
         // update for `newTokenId`.
-        locked_.amount = amount2;
+        locked_.lockedBalance.amount = amount2;
         _createSplitNFT(owner, newTokenId, locked_);
 
         emit Split(_from, newTokenId, sender, amount1, amount2);
@@ -531,10 +542,10 @@ contract VotingEscrowDecreasing is
     function _createSplitNFT(
         address _to,
         uint256 _tokenId,
-        LockedBalance memory _newLocked
+        LockedBalanceDecreasing memory _newLocked
     ) private {
         _locked[_tokenId] = _newLocked;
-        _checkpoint(_tokenId, LockedBalance(0, 0), _newLocked);
+        _checkpoint(_tokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), _newLocked);
         IERC721EMB(lockNFT).mint(_to, _tokenId);
     }
 
@@ -545,8 +556,8 @@ contract VotingEscrowDecreasing is
     /// @param _newLocked New locked amount / start lock time for the user
     function _checkpoint(
         uint256 _tokenId,
-        LockedBalance memory _fromLocked,
-        LockedBalance memory _newLocked
+        LockedBalanceDecreasing memory _fromLocked,
+        LockedBalanceDecreasing memory _newLocked
     ) private {
         IEscrowCurve(curve).checkpoint(_tokenId, _fromLocked, _newLocked);
     }
@@ -564,11 +575,11 @@ contract VotingEscrowDecreasing is
 
         // TODO: check it can withdraw
 
-        LockedBalance memory oldLocked = _locked[_tokenId];
-        uint256 value = oldLocked.amount;
+        LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
+        uint256 value = oldLocked.lockedBalance.amount;
 
         // clear out the token data
-        _locked[_tokenId] = LockedBalance(0, 0);
+        _locked[_tokenId] = LockedBalanceDecreasing(LockedBalance(0, 0), 0);
         totalLocked -= value;
 
         // Burn the NFT and transfer the tokens to the user
@@ -612,7 +623,7 @@ contract VotingEscrowDecreasing is
     /// @inheritdoc IDelegateMoveVoteCaller
     function moveDelegateVotes(address _from, address _to, uint256 _tokenId) public whenNotPaused {
         if (msg.sender != lockNFT) revert OnlyLockNFT();
-        LockedBalance memory locked_ = _locked[_tokenId];
+        LockedBalanceDecreasing memory locked_ = _locked[_tokenId];
 
         _moveDelegateVotes(_from, _to, _tokenId, locked_);
     }
@@ -621,9 +632,9 @@ contract VotingEscrowDecreasing is
         address _from,
         address _to,
         uint256 _tokenId,
-        LockedBalance memory _lockedBalance
+        LockedBalanceDecreasing memory _lockedBalanceDecreasing
     ) private {
-        IEscrowIVotesAdapter(ivotesAdapter).moveDelegateVotes(_from, _to, _tokenId, _lockedBalance);
+        IEscrowIVotesAdapter(ivotesAdapter).moveDelegateVotes(_from, _to, _tokenId, _lockedBalanceDecreasing.lockedBalance);
     }
 
     function updateVotingPower(address _from, address _to) public whenNotPaused {

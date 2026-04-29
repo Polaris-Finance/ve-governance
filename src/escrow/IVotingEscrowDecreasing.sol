@@ -8,14 +8,13 @@ import {IEscrowIVotesAdapter, IDelegateUpdateVotingPower} from "@delegation/IEsc
 //////////////////////////////////////////////////////////////*/
 import {ILockedBalanceIncreasing} from "@escrow/IVotingEscrowIncreasing.sol";
 
-/*
-interface ILockedBalanceIncreasing {
-    struct LockedBalance {
-        uint208 amount;
-        uint48 start; // mirrors oz ERC20 timestamp clocks
+interface ILockedBalanceDecreasing is ILockedBalanceIncreasing {
+    struct LockedBalanceDecreasing {
+        LockedBalance lockedBalance;
+        uint256 effectiveStart;
     }
 }
-*/
+
 
 interface IVotingEscrowCoreErrors {
     error NoLockFound();
@@ -62,7 +61,7 @@ interface IVotingEscrowCoreEvents {
 }
 
 interface IVotingEscrowCore is
-    ILockedBalanceIncreasing,
+    ILockedBalanceDecreasing,
     IVotingEscrowCoreErrors,
     IVotingEscrowCoreEvents
 {

@@ -19,8 +19,12 @@ import {
     IEscrowCurveDecreasing,
     IEscrowCurveTokenStorage
 } from "../../../versions.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
+    using SafeCast for int256;
+    using SafeCast for uint256;
+
     error CheckpointOnDepositIntervalNotAllowed();
 
     function setUp() public override {
@@ -141,8 +145,8 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
             uint256 epoch = curve.tokenPointIntervals(tokenId);
             TokenPoint memory checkpoint = curve.tokenPointHistory(tokenId, epoch);
 
-            assertEq(checkpoint.coefficients[0], biasFP(_value, block.timestamp - virtualStartTime));
-            assertEq(checkpoint.coefficients[1], slopeFP(_value));
+            assertEq(checkpoint.bias, biasFP(_value, block.timestamp - virtualStartTime).toUint256());
+            assertEq(checkpoint.slope, slopeFP(_value));
             assertEq(checkpoint.writtenTs, virtualStartTime);
         }
     }

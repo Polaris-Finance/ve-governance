@@ -17,41 +17,26 @@ contract TestDecreasingCurve is CurveBase {
     using SafeCast for uint256;
 
     function test_votingPowerComputesCorrect() public view {
-        /**
-            Period	Result
-          1	1
-          2	1.428571429
-          3	2.142857143
-          4	3.142857143
-          5	4.428571429
-          6	6
-         */
         uint256 amount = 100e18;
 
-        int256[3] memory coefficients = curve.getCoefficients(100e18);
+        int256[2] memory coefficients = curve.getCoefficients(100e18);
 
         uint256 const = uint256(coefficients[0]);
         uint256 linear = uint256(-coefficients[1]);
-        uint256 quadratic = uint256(coefficients[2]);
 
         assertEq(const, amount);
 
-        console.log("Coefficients: %st^2 - %st + %s", quadratic, linear, const);
+        console.log("Coefficients: - %st + %s", linear, const);
 
-        for (uint i; i <= 6; i++) {
-            uint period = 2 weeks * i;
-            console.log(
-                "Period: %d Voting Power      : %s",
-                i,
-                curve.getBias(period, 100e18) / 1e18
-            );
-            console.log(
-                "Period: %d Voting Power Bound: %s",
-                i,
-                curve.getBias(period, 100e18) / 1e18
-            );
-            console.log("Period: %d Voting Power Raw: %s\n", i, curve.getBias(period, 100e18));
+        for (uint i; i <= 4; i++) {
+            uint period = 52 weeks * i;
+            console.log("Year %d: Voting Power      : %s", i, curve.getBias(period, 100e18) / 1e18);
+            //console.log("Year: %d Voting Power Raw: %s\n", i, curve.getBias(period, 100e18));
         }
+        console.log("Year 4 - 1 d: Voting Power: %s", curve.getBias(208 weeks - 1 days, 100e18) / 1e18);
+        console.log("Year 4 - 1 h: Voting Power: %s", curve.getBias(208 weeks - 1 hours, 100e18) / 1e18);
+        console.log("Year 4 - 1 m: Voting Power: %s", curve.getBias(208 weeks - 1 minutes, 100e18) / 1e18);
+        console.log("Year 4 - 1 s: Voting Power: %s", curve.getBias(208 weeks - 1, 100e18) / 1e18);
 
         // uncomment to see the full curve
         // for (uint i; i <= 14 * 6; i++) {
@@ -60,7 +45,7 @@ contract TestDecreasingCurve is CurveBase {
         //     uint period = day / 2 weeks;
 
         //     console.log("[Day: %d | Week %d | Period %d]", i, week, period);
-        //     console.log("Voting Power        : %s", curve.getBias(day, 100e18) / 1e18);
+        //     console.log("Voting Power      : %s", curve.getBias(day, 100e18) / 1e18);
         //     console.log("Voting Power (raw): %s\n", curve.getBias(day, 100e18));
         // }
     }
@@ -87,13 +72,13 @@ contract TestDecreasingCurve is CurveBase {
 
         escrow.checkpoint(
             tokenIdFirst,
-            LockedBalance(0, 0),
-            LockedBalance(depositFirst, uint48(checkpointTs))
+            _getEmptyLockedBalance(),
+            LockedBalanceDecreasing(LockedBalance(depositFirst, uint48(checkpointTs)), checkpointTs)
         );
         escrow.checkpoint(
             tokenIdSecond,
-            LockedBalance(0, 0),
-            LockedBalance(depositSecond, uint48(checkpointTs))
+            _getEmptyLockedBalance(),
+            LockedBalanceDecreasing(LockedBalance(depositSecond, uint48(checkpointTs)), checkpointTs)
         );
 
         // check the token point is registered

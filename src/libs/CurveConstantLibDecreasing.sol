@@ -8,7 +8,7 @@ int256 constant INITIAL_BIAS_MULTIPLIER = 1;
 
 /// @title CurveConstantLib
 /// @notice Precomputed coefficients for escrow curve
-/// Below are the shared coefficients for the linear and quadratic terms
+/// Below are the shared coefficients for the linear terms
 /// @dev This curve goes from 1x -> 0x voting power over a 4 year time horizon
 /// Epochs are still 2 weeks long
 library CurveConstantLib {
@@ -16,7 +16,7 @@ library CurveConstantLib {
 
     /// @dev straight line so the curve is increasing only in the linear term
     /// - 1 / (104 * SECONDS_IN_2_WEEKS)
-    int256 internal constant SHARED_LINEAR_COEFFICIENT = -1e18 / (int256(MAX_EPOCHS) * 2 weeks);
+    int256 internal constant SHARED_LINEAR_COEFFICIENT = -1e18 / (int256(MAX_EPOCHS) * 2 weeks) - 1;
 
     /// @dev this curve is linear
     int256 internal constant SHARED_QUADRATIC_COEFFICIENT = 0;
@@ -25,11 +25,10 @@ library CurveConstantLib {
     /// 26 epochs in a year, 4 years = 104 epochs
     uint256 internal constant MAX_EPOCHS = 104;
 
-    function getCoefficients() internal pure returns (int256[3] memory, uint256) {
-        int256[3] memory coefficients;
+    function getCoefficients() internal pure returns (int256[2] memory, uint256) {
+        int256[2] memory coefficients;
         coefficients[0] = SHARED_CONSTANT_COEFFICIENT;
         coefficients[1] = SHARED_LINEAR_COEFFICIENT;
-        coefficients[2] = SHARED_QUADRATIC_COEFFICIENT;
         uint256 maxEpoch = MAX_EPOCHS;
 
         return (coefficients, maxEpoch);

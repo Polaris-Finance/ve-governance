@@ -15,6 +15,7 @@ import {MockERC20} from "@mocks/MockERC20.sol";
 import {createTestDAO} from "@mocks/MockDAO.sol";
 
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {console2 as console} from "forge-std/console2.sol";
 
 import "@helpers/OSxHelpers.sol";
@@ -51,6 +52,9 @@ contract EscrowBase is
     ISplitEventsAndErrors
 {
     using ProxyLib for address;
+    using SafeCast for int256;
+    using SafeCast for uint256;
+
     string name = "Voting Escrow";
     string symbol = "VE";
 
@@ -102,7 +106,7 @@ contract EscrowBase is
         nftLock = _deployLock(address(escrow), name, symbol, address(dao));
         ivotesAdapter = _deployEscrowIVotesAdapter(address(dao), address(escrow), address(clock));
 
-        (int256[3] memory coefficients, ) = CurveConstantLib.getCoefficients();
+        (int256[2] memory coefficients, ) = CurveConstantLib.getCoefficients();
         FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), coefficients[1]);
 
         // to be added as proxies
@@ -199,8 +203,8 @@ contract EscrowBase is
         uint256 tokenLatestIndex = curve.tokenPointLatestIndex(_tokenId);
         assertEq(tokenLatestIndex, _expectedLatestIndex);
         TokenPoint memory tokenP = curve.tokenPointHistory(_tokenId, tokenLatestIndex);
-        assertEq(tokenP.coefficients[0], _biasFP);
-        assertEq(tokenP.coefficients[1], _slopeFP);
+        assertEq(tokenP.bias, _biasFP.toUint256());
+        assertEq(tokenP.slope, _slopeFP);
         assertEq(tokenP.writtenTs, _writtenTs);
     }
 
@@ -214,7 +218,7 @@ contract EscrowBase is
         assertEq(latestIndex, _expectedLatestIndex);
         GlobalPoint memory p = curve.globalPointHistory(latestIndex);
         assertEq(p.writtenTs, _writtenTs);
-        assertEq(p.bias, _biasFP);
+        assertEq(p.bias, _biasFP.toUint256());
         assertEq(p.slope, _slopeFP);
     }
 
@@ -235,6 +239,7 @@ contract EscrowBase is
     }
 
     function assertVotingPower(uint256 _tokenId, uint256 _t, int256 _amountFP, string memory _message) internal view {
+        if (_amountFP < 0) _amountFP = 0;
         assertEq(curve.votingPowerAt(_tokenId, _t), uint256(_amountFP / 1e18), _message);
     }
 
@@ -361,8 +366,8 @@ contract EscrowBase is
         address _escrow,
         address _clock
     ) public returns (EscrowIVotesAdapter) {
-        (int256[3] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
-        EscrowIVotesAdapter impl = new EscrowIVotesAdapter(coefficients, maxEpoch);
+        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
+        EscrowIVotesAdapter impl = new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch);
         bool startPaused = false;
 
         bytes memory initCalldata = abi.encodeCall(
@@ -395,7 +400,7 @@ contract EscrowBase is
         address _dao,
         address _clock
     ) public returns (LinearDecreasingCurve) {
-        (int256[3] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
+        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
         LinearDecreasingCurve impl = new LinearDecreasingCurve(coefficients, maxEpoch);
 
         bytes memory initCalldata = abi.encodeCall(

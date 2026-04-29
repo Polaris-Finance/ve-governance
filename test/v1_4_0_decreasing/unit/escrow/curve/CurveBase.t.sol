@@ -7,7 +7,7 @@ import {
     Clock,
     CurveConstantLib,
     Curve,
-    ILockedBalanceIncreasing,
+    ILockedBalanceDecreasing,
     IVotingEscrowDecreasing as IVotingEscrow,
     IEscrowCurveDecreasing as IEscrowCurve
 } from "../../../versions.sol";
@@ -18,31 +18,31 @@ import {FixedPointBase} from "../../../base/FixedPointBase.sol";
 contract MockEscrow {
     address public token;
     Curve public curve;
-    mapping(uint => IVotingEscrow.LockedBalance) locked_;
+    mapping(uint => IVotingEscrow.LockedBalanceDecreasing) locked_;
 
     function setCurve(Curve _curve) external {
         curve = _curve;
     }
 
-    function setLocked(uint256 _tokenId, IVotingEscrow.LockedBalance memory _locked) external {
+    function setLocked(uint256 _tokenId, IVotingEscrow.LockedBalanceDecreasing memory _locked) external {
         locked_[_tokenId] = _locked;
     }
 
     function checkpoint(
         uint256 _tokenId,
-        IVotingEscrow.LockedBalance memory _oldLocked,
-        IVotingEscrow.LockedBalance memory _newLocked
+        IVotingEscrow.LockedBalanceDecreasing memory _oldLocked,
+        IVotingEscrow.LockedBalanceDecreasing memory _newLocked
     ) external {
         locked_[_tokenId] = _newLocked;
         return curve.checkpoint(_tokenId, _oldLocked, _newLocked);
     }
 
-    function locked(uint256 _tokenId) external view returns (IVotingEscrow.LockedBalance memory) {
+    function locked(uint256 _tokenId) external view returns (IVotingEscrow.LockedBalanceDecreasing memory) {
         return locked_[_tokenId];
     }
 }
 
-contract CurveBase is TestHelpers, FixedPointBase, ILockedBalanceIncreasing {
+contract CurveBase is TestHelpers, FixedPointBase, ILockedBalanceDecreasing {
     using ProxyLib for address;
     Curve internal curve;
     MockEscrow internal escrow;
@@ -56,7 +56,7 @@ contract CurveBase is TestHelpers, FixedPointBase, ILockedBalanceIncreasing {
         bytes memory initClockCalldata = abi.encodeWithSelector(Clock.initialize.selector, dao);
         clock = Clock(clockImpl.deployUUPSProxy(initClockCalldata));
 
-        (int256[3] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
+        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
         address impl = address(new Curve(coefficients, maxEpoch));
 
         bytes memory initCalldata = abi.encodeCall(
@@ -82,4 +82,6 @@ contract CurveBase is TestHelpers, FixedPointBase, ILockedBalanceIncreasing {
         escrow.setCurve(curve);
         FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), coefficients[1]);
     }
+
+    function _getEmptyLockedBalance() internal pure returns (LockedBalanceDecreasing memory) {}
 }

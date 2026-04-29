@@ -69,4 +69,12 @@ contract FixedPointBase {
     ) internal view returns (uint256) {
         return getEndTimestamp(_startTimeTs, _writtenTs, 0);
     }
+
+    function getQuadraticCoefficientsFromLinear(int256[2] memory _coefficients) internal view returns (int256[3] memory) {
+        int256[3] memory coefficientsQuad;
+        coefficientsQuad[0] = _coefficients[0];
+        coefficientsQuad[1] = _coefficients[1];
+        coefficientsQuad[2] = 0;
+        return coefficientsQuad;
+    }
 }
