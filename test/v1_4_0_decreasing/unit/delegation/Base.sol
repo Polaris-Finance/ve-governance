@@ -90,7 +90,7 @@ contract Base is
 
         uint256 maxTime = IClock(clock).epochDuration() * CurveConstantLib.MAX_EPOCHS;
 
-        (int256[3] memory coefficients, ) = CurveConstantLib.getCoefficients();
+        (int256[2] memory coefficients, ) = CurveConstantLib.getCoefficients();
         FixedPointBase.initialize(maxTime, clock.checkpointInterval(), coefficients[1]);
 
         // grant this contract admin role
@@ -154,8 +154,8 @@ contract Base is
         address _clock,
         address _escrow
     ) public returns (EscrowIVotesAdapterA) {
-        (int256[3] memory coefficients, uint256 maxEpochs) = CurveConstantLib.getCoefficients();
-        EscrowIVotesAdapterA impl = new EscrowIVotesAdapterA(coefficients, maxEpochs);
+        (int256[2] memory coefficients, uint256 maxEpochs) = CurveConstantLib.getCoefficients();
+        EscrowIVotesAdapterA impl = new EscrowIVotesAdapterA(getQuadraticCoefficientsFromLinear(coefficients), maxEpochs);
 
         bool startPaused = false;
 

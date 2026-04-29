@@ -67,8 +67,6 @@ contract LinearDecreasingCurve is
     //////////////////////////////////////////////////////////////*/
 
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-    int256 private immutable SHARED_QUADRATIC_COEFFICIENT;
-    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
     int256 private immutable SHARED_LINEAR_COEFFICIENT;
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
     int256 private immutable SHARED_CONSTANT_COEFFICIENT;
@@ -93,10 +91,9 @@ contract LinearDecreasingCurve is
     //////////////////////////////////////////////////////////////*/
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(int256[3] memory _coefficients, uint256 _maxEpochs) {
+    constructor(int256[2] memory _coefficients, uint256 _maxEpochs) {
         SHARED_CONSTANT_COEFFICIENT = _coefficients[0];
         SHARED_LINEAR_COEFFICIENT = _coefficients[1];
-        SHARED_QUADRATIC_COEFFICIENT = _coefficients[2];
 
         MAX_EPOCHS = _maxEpochs;
 
@@ -123,28 +120,27 @@ contract LinearDecreasingCurve is
         return amount.toInt256() * SHARED_LINEAR_COEFFICIENT;
     }
 
-    /// @return The constant coefficient of the increasing curve, for the given amount
+    /// @return The constant coefficient of the decreasing curve, for the given amount
     /// @dev In this case, the constant term is 1 so we just case the amount
     function _getConstantCoeff(uint256 amount) internal view virtual returns (int256) {
         return amount.toInt256() * SHARED_CONSTANT_COEFFICIENT;
     }
 
-    /// @return The coefficients of the quadratic curve, for the given amount
-    /// @dev The coefficients are returned in the order [constant, linear, quadratic]
-    function _getCoefficients(uint256 amount) internal view virtual returns (int256[3] memory) {
-        return [_getConstantCoeff(amount), _getLinearCoeff(amount), 0];
+    /// @return The coefficients of the linear curve, for the given amount
+    /// @dev The coefficients are returned in the order [constant, linear]
+    function _getCoefficients(uint256 amount) internal view virtual returns (int256[2] memory) {
+        return [_getConstantCoeff(amount), _getLinearCoeff(amount)];
     }
 
-    /// @return The coefficients of the quadratic curve, for the given amount
-    /// @dev The coefficients are returned in the order [constant, linear, quadratic]
+    /// @return The coefficients of the linear curve, for the given amount
+    /// @dev The coefficients are returned in the order [constant, linear]
     /// and are converted to regular 256-bit signed integers instead of their fixed-point representation
-    function getCoefficients(uint256 amount) public view virtual returns (int256[3] memory) {
-        int256[3] memory coefficients = _getCoefficients(amount);
+    function getCoefficients(uint256 amount) external view virtual returns (int256[2] memory) {
+        int256[2] memory coefficients = _getCoefficients(amount);
 
         return [
             coefficients[0] / 1e18, // amount
-            coefficients[1] / 1e18, // slope
-            0
+            coefficients[1] / 1e18 // slope
         ];
     }
 
@@ -153,11 +149,9 @@ contract LinearDecreasingCurve is
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the bias for the given time elapsed and amount, up to the maximum time
-    function getBias(uint256 timeElapsed, uint256 amount) public view returns (uint256) {
-        int256[3] memory coefficients = _getCoefficients(amount);
-        uint256 bias = _getBias(timeElapsed, coefficients[0], coefficients[1]);
-
-        return bias / 1e18;
+    function getBias(uint256 timeElapsed, uint256 amount) external view returns (uint256) {
+        int256[2] memory coefficients = _getCoefficients(amount);
+        return _getBias(timeElapsed, coefficients[0], coefficients[1]);
     }
 
     /// @notice Returns the bias for the given time elapsed and amount, up to the maximum time
@@ -177,7 +171,7 @@ contract LinearDecreasingCurve is
     function _getBiasAndSlope(
         uint256 _timeElapsed,
         uint256 _amount
-    ) public view returns (int256, int256) {
+    ) public view returns (uint256, int256) {
         int256 slope = _getLinearCoeff(_amount);
         uint256 bias = _getBias(
             _timeElapsed,
@@ -185,7 +179,7 @@ contract LinearDecreasingCurve is
             slope
         );
 
-        return (int256(bias), slope);
+        return (bias, slope);
     }
 
     function maxTime() public view virtual returns (uint256) {
@@ -201,9 +195,7 @@ contract LinearDecreasingCurve is
         uint256 _tokenId,
         uint256 _index
     ) external view returns (TokenPoint memory point) {
-        point = _tokenPointHistory[_tokenId][_index];
-        /// bind for backwards compatibility
-        point.bias = uint(point.coefficients[0]) / 1e18;
+        return _tokenPointHistory[_tokenId][_index];
     }
 
     /// @inheritdoc IEscrowCurveGlobal
@@ -226,8 +218,8 @@ contract LinearDecreasingCurve is
         // Note that very first point is saved at index 1.
         // Grab last point before `_t`.
         TokenPoint memory lastPoint = _tokenPointHistory[_tokenId][interval];
-        int256 bias = lastPoint.coefficients[0];
-        int256 slope = lastPoint.coefficients[1];
+        int256 bias = lastPoint.bias.toInt256();
+        int256 slope = lastPoint.slope;
 
         uint256 elapsed = _t - lastPoint.writtenTs;
 
@@ -246,8 +238,8 @@ contract LinearDecreasingCurve is
     /// @notice A checkpoint can be called by the VotingEscrow contract to snapshot the user's voting power
     function checkpoint(
         uint256 _tokenId,
-        IVotingEscrow.LockedBalance memory _oldLocked,
-        IVotingEscrow.LockedBalance memory _newLocked
+        IVotingEscrow.LockedBalanceDecreasing memory _oldLocked,
+        IVotingEscrow.LockedBalanceDecreasing memory _newLocked
     ) external nonReentrant {
         if (msg.sender != escrow) revert OnlyEscrow();
         _checkpoint(_tokenId, _oldLocked, _newLocked);
@@ -259,22 +251,22 @@ contract LinearDecreasingCurve is
     /// @param _newLocked New locked amount / end lock time for the user
     function _checkpoint(
         uint256 _tokenId,
-        IVotingEscrow.LockedBalance memory _fromLocked,
-        IVotingEscrow.LockedBalance memory _newLocked
+        IVotingEscrow.LockedBalanceDecreasing memory _fromLocked,
+        IVotingEscrow.LockedBalanceDecreasing memory _newLocked
     ) internal {
         // this implementation doesn't yet support manual checkpointing
         if (_tokenId == 0) revert InvalidTokenId();
 
-        if (_newLocked.start < _fromLocked.start) {
+        if (_newLocked.lockedBalance.start < _fromLocked.lockedBalance.start) {
             revert InvalidCheckpoint();
         }
 
         uint256 _globalPointLatestIndex = globalPointLatestIndex;
 
         // Get the slope and bias for `_newLocked`...
-        (int256 newLockBias, int256 newLockSlope) = _getBiasAndSlope(
-            block.timestamp - _newLocked.start,
-            _newLocked.amount
+        (uint256 newLockBias, int256 newLockSlope) = _getBiasAndSlope(
+             _newLocked.effectiveStart - _newLocked.lockedBalance.start,
+            _newLocked.lockedBalance.amount
         );
 
         GlobalPoint memory lastPoint = GlobalPoint({
@@ -308,11 +300,12 @@ contract LinearDecreasingCurve is
                     dSlope = slopeChanges[t_i];
                 }
 
-                lastPoint.bias += lastPoint.slope * int256(t_i - lastPointCheckpoint);
-                lastPoint.slope -= dSlope;
+                int256 newBias = lastPoint.bias.toInt256() + lastPoint.slope * (t_i - lastPointCheckpoint).toInt256();
+                if (newBias < 0) newBias = 0;
+                lastPoint.bias = newBias.toUint256();
 
-                if (lastPoint.slope < 0) lastPoint.slope = 0;
-                if (lastPoint.bias < 0) lastPoint.bias = 0;
+                lastPoint.slope -= dSlope;
+                if (lastPoint.slope > 0) lastPoint.slope = 0;
 
                 lastPointCheckpoint = t_i;
                 lastPoint.writtenTs = uint48(t_i);
@@ -327,8 +320,8 @@ contract LinearDecreasingCurve is
         }
 
         uint256 _maxTime = maxTime();
-        uint256 newLockedEnd = _newLocked.start + _maxTime;
-        uint256 fromLockedEnd = _fromLocked.start + _maxTime;
+        uint256 newLockedEnd = _newLocked.lockedBalance.start + _maxTime;
+        uint256 fromLockedEnd = _fromLocked.lockedBalance.start + _maxTime;
 
         // The following condition is true if merging non-mature locks with different start dates.
         // current version of ve-governance is built around the assumption that merge can only
@@ -336,26 +329,20 @@ contract LinearDecreasingCurve is
         // does this check before calling `checkpoint` on curve, it's still a safety measure to repeat
         // the check in case the code of checkpoint might be called by another contract in the future.
         if (
-            _fromLocked.start != 0 &&
-            _newLocked.start != 0 &&
-            _fromLocked.start != _newLocked.start &&
+            _fromLocked.lockedBalance.start != 0 &&
+            _newLocked.lockedBalance.start != 0 &&
+            _fromLocked.lockedBalance.start != _newLocked.lockedBalance.start &&
             (newLockedEnd >= block.timestamp || fromLockedEnd >= block.timestamp)
         ) {
             revert InvalidLocks(_tokenId, _fromLocked, _newLocked);
         }
 
-        // newLocked could be ended in case of merge, when
-        // a token is already mature.
-        if (newLockedEnd <= block.timestamp) {
-            newLockSlope = 0;
-        }
+        (uint256 oldLockBias, int256 oldLockSlope) = (0, 0);
 
-        (int256 oldLockBias, int256 oldLockSlope) = (0, 0);
-
-        if (_fromLocked.amount > 0) {
+        if (_fromLocked.lockedBalance.amount > 0) {
             (oldLockBias, oldLockSlope) = _getBiasAndSlope(
-                block.timestamp - _fromLocked.start,
-                _fromLocked.amount
+                _fromLocked.effectiveStart - _fromLocked.lockedBalance.start,
+                _fromLocked.lockedBalance.amount
             );
 
             // In case fromLocked already ended, its slope would already
@@ -366,11 +353,18 @@ contract LinearDecreasingCurve is
             }
         }
 
-        lastPoint.bias += (newLockBias - oldLockBias);
-        lastPoint.slope += (newLockSlope - oldLockSlope);
+        {
 
-        if (lastPoint.slope > 0) lastPoint.slope = 0;
-        if (lastPoint.bias < 0) lastPoint.bias = 0;
+            int256 lastPointNewBias = lastPoint.bias.toInt256() + newLockBias.toInt256() - oldLockBias.toInt256();
+            if (lastPointNewBias < 0) {
+                lastPoint.bias = 0;
+            } else {
+                lastPoint.bias = lastPointNewBias.toUint256();
+            }
+            lastPoint.slope += (newLockSlope - oldLockSlope);
+            if (lastPoint.slope > 0) lastPoint.slope = 0;
+        }
+
 
         uint256 tokenLatestIndex = tokenPointLatestIndex[_tokenId];
 
@@ -389,8 +383,9 @@ contract LinearDecreasingCurve is
 
         // Create new token point and store.
         TokenPoint memory tNew;
-        tNew.writtenTs = _newLocked.start;
-        tNew.coefficients = [newLockBias, newLockSlope, 0];
+        tNew.bias = newLockBias;
+        tNew.slope = newLockSlope;
+        tNew.writtenTs = _newLocked.effectiveStart;
 
         // Record the latest token point.
         _storeLatestTokenPoint(tNew, _tokenId, tokenLatestIndex);
@@ -506,7 +501,7 @@ contract LinearDecreasingCurve is
         if (epoch_ == 0) return 0;
         GlobalPoint memory _point = _globalPointHistory[epoch_];
 
-        int256 bias = _point.bias;
+        int256 bias = _point.bias.toInt256();
         int256 slope = _point.slope;
         uint256 ts = _point.writtenTs; // changes in for loop.
 

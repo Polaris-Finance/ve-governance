@@ -39,6 +39,7 @@ import {
     ISplit,
     IVotingEscrowDecreasing,
     ILockedBalanceIncreasing,
+    ILockedBalanceDecreasing,
     IVotingEscrowEventsStorageErrorsEvents,
     IVotingEscrowCoreErrors,
     IMergeEventsAndErrors,

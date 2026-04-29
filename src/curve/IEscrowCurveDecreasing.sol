@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../IDeprecated.sol";
-import {ILockedBalanceIncreasing} from "@escrow/IVotingEscrowIncreasing.sol";
+import {ILockedBalanceDecreasing} from "@escrow/IVotingEscrowDecreasing.sol";
 
 /*///////////////////////////////////////////////////////////////
                         Token Curve
@@ -17,8 +17,8 @@ interface IEscrowCurveTokenStorage {
     /// and not all coefficients are used for all curves.
     struct TokenPoint {
         uint256 bias;
+        int256 slope;
         uint256 writtenTs;
-        int256[3] coefficients;
     }
 }
 
@@ -57,8 +57,8 @@ interface IEscrowCurveErrorsAndEvents {
     error CheckpointOnDepositIntervalNotAllowed();
     error InvalidLocks(
         uint256 tokenId,
-        ILockedBalanceIncreasing.LockedBalance fromLocked,
-        ILockedBalanceIncreasing.LockedBalance newLocked
+        ILockedBalanceDecreasing.LockedBalanceDecreasing fromLocked,
+        ILockedBalanceDecreasing.LockedBalanceDecreasing newLocked
     );
 }
 
@@ -82,8 +82,8 @@ interface IEscrowCurveCore is IEscrowCurveErrorsAndEvents {
     /// @param _newLocked The token's new locked balance
     function checkpoint(
         uint256 _tokenId,
-        ILockedBalanceIncreasing.LockedBalance memory _oldLocked,
-        ILockedBalanceIncreasing.LockedBalance memory _newLocked
+        ILockedBalanceDecreasing.LockedBalanceDecreasing memory _oldLocked,
+        ILockedBalanceDecreasing.LockedBalanceDecreasing memory _newLocked
     ) external;
 }
 
@@ -92,29 +92,10 @@ interface IEscrowCurveMath {
     /// @param amount The amount of tokens to calculate the coefficients for - given a fixed algebraic representation
     /// @return coefficients in the form [constant, linear, quadratic]
     /// @dev Not all coefficients are used for all curves
-    function getCoefficients(uint256 amount) external view returns (int256[3] memory coefficients);
+    function getCoefficients(uint256 amount) external view returns (int256[2] memory coefficients);
 
     /// @notice Bias is the token's voting weight
     function getBias(uint256 timeElapsed, uint256 amount) external view returns (uint256 bias);
-}
-
-/*///////////////////////////////////////////////////////////////
-                        WARMUP CURVE
-//////////////////////////////////////////////////////////////*/
-
-interface IWarmupEvents {
-    event WarmupSet(uint48 warmup);
-}
-
-interface IWarmup is IWarmupEvents {
-    /// @notice Set the warmup period for the curve
-    function setWarmupPeriod(uint48 _warmup) external;
-
-    /// @notice the warmup period for the curve
-    function warmupPeriod() external view returns (uint48);
-
-    /// @notice check if the curve is past the warming period
-    function isWarm(uint256 _tokenId) external view returns (bool);
 }
 
 // From v1_2_0:
@@ -129,7 +110,7 @@ interface IEscrowCurveGlobalStorage {
     /// @param slope The slope of the aggregate voting curve at the given time
     /// @param writtenTs The timestamp at which the we last updated the aggregate voting curve
     struct GlobalPoint {
-        int256 bias;
+        uint256 bias;
         int256 slope;
         uint48 writtenTs;
     }

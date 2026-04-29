@@ -32,8 +32,10 @@ import {
     EscrowIVotesAdapter
 } from "../../versions.sol";
 
-contract GaugesDaoFactoryTest is Test {
-    int256[3] internal coefficients;
+import {FixedPointBase} from "../../base/FixedPointBase.sol";
+
+contract GaugesDaoFactoryTest is FixedPointBase, Test {
+    int256[2] internal coefficients;
     uint256 internal maxEpoch;
     
     function setUp() public {
@@ -52,7 +54,7 @@ contract GaugesDaoFactoryTest is Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
         );
 
         MockPluginRepoRegistry pRepoRegistry = new MockPluginRepoRegistry();
@@ -206,7 +208,7 @@ contract GaugesDaoFactoryTest is Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
         );
 
         MockPluginRepoRegistry pRepoRegistry = new MockPluginRepoRegistry();
@@ -375,7 +377,7 @@ contract GaugesDaoFactoryTest is Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](2);
@@ -711,7 +713,7 @@ contract GaugesDaoFactoryTest is Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](3);
@@ -1126,7 +1128,7 @@ contract GaugesDaoFactoryTest is Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](3);
