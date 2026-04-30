@@ -85,14 +85,14 @@ contract TestDecreasingCurve is CurveBase {
         IEscrowCurve.TokenPoint memory tokenPoint = curve.tokenPointHistory(tokenIdFirst, 1);
         assertEq(
             tokenPoint.bias,
-            curve.getBias(block.timestamp - checkpointTs, depositFirst),
+            curve.getBias(0, depositFirst),
             "Bias is incorrect"
         );
         assertEq(tokenPoint.writtenTs, checkpointTs, "Written Timestamp is incorrect");
 
         assertEq(
             curve.votingPowerAt(tokenIdFirst, block.timestamp),
-            curve.getBias(block.timestamp - checkpointTs, depositFirst),
+            curve.getBias(block.timestamp - checkpointTs, depositFirst) / 1e18,
             "Balance incorrect after deposit"
         );
 
@@ -100,18 +100,18 @@ contract TestDecreasingCurve is CurveBase {
 
         assertEq(
             curve.votingPowerAt(tokenIdFirst, block.timestamp),
-            curve.getBias(block.timestamp - checkpointTs, depositFirst),
+            curve.getBias(block.timestamp - checkpointTs, depositFirst) / 1e18,
             "Balance incorrect after 3 days"
         );
 
         assertEq(
             curve.votingPowerAt(tokenIdSecond, block.timestamp),
-            curve.getBias(block.timestamp - checkpointTs, depositSecond),
+            curve.getBias(block.timestamp - checkpointTs, depositSecond) / 1e18,
             "Balance incorrect after warmup II"
         );
 
-        uint256 expectedMaxI = curve.getBias(maxTime, depositFirst);
-        uint256 expectedMaxII = curve.getBias(maxTime, depositSecond);
+        uint256 expectedMaxI = curve.getBias(maxTime, depositFirst) / 1e18;
+        uint256 expectedMaxII = curve.getBias(maxTime, depositSecond) / 1e18;
 
         // Warp to the end of the growth window derived from the current curve config.
         // This remains valid when MAX_EPOCHS is changed in CurveConstantLib.

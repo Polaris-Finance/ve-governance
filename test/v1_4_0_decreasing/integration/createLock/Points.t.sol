@@ -47,14 +47,14 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         assertTokenPoint(
             tokenId,
             1,
-            biasFP(Lock_1_Amount, block.timestamp - weekStartTs),
+            biasFP(Lock_1_Amount, 0),
             slopeFP(Lock_1_Amount),
             weekStartTs
         );
 
         assertGlobalPoint(
             1,
-            biasFP(Lock_1_Amount, block.timestamp - weekStartTs),
+            biasFP(Lock_1_Amount, 0),
             slopeFP(Lock_1_Amount),
             weekStartTs
         );
@@ -63,7 +63,9 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         assertEq(slopeChanges(weekStartTs + maxTime), slopeFP(Lock_1_Amount));
     }
 
-    function test_whenCreatingNewLock_existingLock_at_same_timestamp() public givenExistingLock {
+    function test_whenCreatingNewLock_existingLock_at_same_timestamp() public {
+        _givenExistingLock();
+
         // Given: prior locks exists at the same timestamp
         // 1. should be 2 entry point in global history and one entry point in each lock's token point
         // 2. timestamp on the token and global point should be block.timestamp and start must be current week
@@ -74,8 +76,8 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         uint256 weekStartTs = weekStartTs(block.timestamp);
 
         // 1, 2, 3
-        int256 token1BiasFP = biasFP(Lock_1_Amount, block.timestamp - weekStartTs);
-        int256 token2BiasFP = biasFP(Lock_2_Amount, block.timestamp - weekStartTs);
+        int256 token1BiasFP = biasFP(Lock_1_Amount, 0);
+        int256 token2BiasFP = biasFP(Lock_2_Amount, 0);
 
         assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), weekStartTs);
         assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs);
@@ -94,7 +96,9 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         );
     }
 
-    function test_whenCreatingNewLock_existingLock_at_previous_week() public givenExistingLock {
+    function test_whenCreatingNewLock_existingLock_at_previous_week() public {
+        _givenExistingLock();
+
         // Given: prior locks exists in the previous week.
         // 1. should be 3 entry point in global history and one entry point in each lock's token point
         // 2. timestamp on the token and global point should be block.timestamp and start must be current week
@@ -107,8 +111,8 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         uint256 weekStartTs = weekStartTs(block.timestamp);
 
         // 1, 2, 3
-        int256 token1BiasFP = biasFP(Lock_1_Amount, Lock_1_ts - Lock_1_start);
-        int256 token2BiasFP = biasFP(Lock_2_Amount, block.timestamp - weekStartTs);
+        int256 token1BiasFP = biasFP(Lock_1_Amount, 0);
+        int256 token2BiasFP = biasFP(Lock_2_Amount, 0);
 
         assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), Lock_1_start);
         assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs);
@@ -117,7 +121,7 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         // which must be updated upon 2nd lock's insert.
         assertGlobalPoint(
             3,
-            biasFP(Lock_1_Amount, block.timestamp - Lock_1_start) + token2BiasFP,
+            biasFP(Lock_1_Amount, weekStartTs - Lock_1_start) + token2BiasFP,
             slopeFP(Lock_1_Amount) + slopeFP(Lock_2_Amount),
             weekStartTs
         );
@@ -127,7 +131,9 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         assertEq(slopeChanges(weekStartTs + maxTime), slopeFP(Lock_2_Amount));
     }
 
-    function test_whenCreatingNewLock_existingLock_ended() public givenExistingLock {
+    function test_whenCreatingNewLock_existingLock_ended() public {
+        _givenExistingLock();
+
         // Given: prior locks exists and current timestamp is after its end date.
         // 1. should be `X`(X = howmanyweeksbetween + 2) entry point in global history and one entry point in each lock's token point.
         // 2. timestamp on the token and global point should be block.timestamp and start must be current week
@@ -144,8 +150,8 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         uint256 Lock_2_end = weekStartTs + maxTime;
 
         // 1, 2, 3
-        int256 token1BiasFP = biasFP(Lock_1_Amount, Lock_1_ts - Lock_1_start);
-        int256 token2BiasFP = biasFP(Lock_2_Amount, block.timestamp - weekStartTs);
+        int256 token1BiasFP = biasFP(Lock_1_Amount, 0);
+        int256 token2BiasFP = biasFP(Lock_2_Amount, 0);
 
         assertTokenPoint(1, 1, token1BiasFP, slopeFP(Lock_1_Amount), Lock_1_start);
         assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs);

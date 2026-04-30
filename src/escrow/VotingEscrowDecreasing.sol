@@ -573,7 +573,8 @@ contract VotingEscrowDecreasing is
     function withdraw(uint256 _tokenId) external nonReentrant whenNotPaused {
         address sender = _msgSender();
 
-        // TODO: check it can withdraw
+        // Cannot withdraw until lock expires
+        if (votingPower(_tokenId) > 0) revert CannotWithdrawUntilExpiry();
 
         LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
         uint256 value = oldLocked.lockedBalance.amount;

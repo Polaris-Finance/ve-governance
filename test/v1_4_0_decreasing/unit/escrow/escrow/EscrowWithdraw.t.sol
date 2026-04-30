@@ -43,19 +43,22 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         uint256 tokenId = escrow.createLock(100e18, MAX_TIME);
         nftLock.approve(address(escrow), tokenId);
 
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
 
+        // Still not expired
         vm.warp(block.timestamp + 1);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
+        escrow.withdraw(tokenId);
+
+        // Finally expired
+        vm.warp(block.timestamp + MAX_TIME);
         escrow.withdraw(tokenId);
     }
 
-    function testFuzz_enterWithdrawal(uint128 _dep, address _who) public {
-        assert(false);
-        /* TODO
+    function testFuzz_withdraw(uint128 _dep, address _who) public {
         vm.assume(_who != address(0) && address(_who).code.length == 0);
-        vm.assume(_dep > 0);
-        uint queueAt;
+        vm.assume(_dep > 1e6);
 
         uint256 startTime = block.timestamp;
 
@@ -67,9 +70,7 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
             token.approve(address(escrow), _dep);
             tokenId = escrow.createLock(_dep, MAX_TIME);
 
-            // voting active after cooldown
             vm.warp(block.timestamp + 2 weeks + 1 hours);
-            queueAt = block.timestamp;
 
             ivotesAdapter.delegate(_who);
 
@@ -78,44 +79,37 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         }
         vm.stopPrank();
 
-        // enter a withdrawal
+        // withdraw
         vm.startPrank(_who);
         {
+            assertGt(escrow.votingPower(tokenId), 0);
+            // let the lock expire
+            vm.warp(block.timestamp + MAX_TIME);
+            // check the voting power expired
+            assertEq(escrow.votingPower(tokenId), 0);
+            // withdraw
             nftLock.approve(address(escrow), tokenId);
-            // Check backwards compat
-            escrow.resetVotesAndBeginWithdrawal(tokenId);
+            escrow.withdraw(tokenId);
         }
         vm.stopPrank();
 
-        // should now have the nft in the escrow
+        // the nft should have been burnt
         assertEq(nftLock.balanceOf(_who), 0);
-        assertEq(nftLock.balanceOf(address(escrow)), 1);
+        assertEq(nftLock.balanceOf(address(escrow)), 0);
 
         assertEq(escrow.votingPower(tokenId), 0);
 
         // but we should have written a token point in the future
         TokenPoint memory up = curve.tokenPointHistory(tokenId, 2);
         assertEq(up.bias, 0);
-        assertEq(up.writtenTs, block.timestamp);
-        assertEq(up.checkpointTs, weekStartTs(startTime));
-        assertEq(up.coefficients[0], 0);
-        assertEq(up.coefficients[1], 0);
+        assertEq(up.slope, 0);
+        assertEq(up.writtenTs, weekStartTs(startTime));
 
-        // should have a ticket expiring in a few days
-        assertEq(queue.canExit(tokenId), false);
-        assertEq(queue.queue(tokenId).queuedAt, queueAt);
-
-        // check the future to see the voting power expired
-        vm.warp(3 weeks + 1);
-        assertEq(escrow.votingPower(tokenId), 0);
-        */
     }
 
 
     // HAL-13: locks are re-used causing reverts and duplications
     function testCanCreateLockAfterBurning() public {
-        assert(false);
-        /* TODO
         address USER1 = address(1);
         address USER2 = address(2);
 
@@ -141,14 +135,10 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         {
             nftLock.approve(address(escrow), tokenId);
 
-            vm.warp(1 weeks + 1 days);
+            vm.warp(MAX_TIME + 1 days);
 
             escrow.withdraw(tokenId);
 
-            TicketV2 memory ticket = queue.queue(tokenId);
-            vm.warp(ticket.queuedAt + queue.cooldown());
-
-            escrow.withdraw(tokenId);
             token.approve(address(escrow), 100);
             tokenId3 = escrow.createLockFor(100, MAX_TIME, USER1); // Token ID 2 - Duplicated - Reescrowrt
         }
@@ -159,6 +149,5 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         assertNotEq(tokenId2, tokenId3);
         assertEq(nftLock.totalSupply(), 2);
         assertEq(escrow.lastLockId(), 3);
-        */
     }
 }

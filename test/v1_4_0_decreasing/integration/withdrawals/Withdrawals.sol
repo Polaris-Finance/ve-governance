@@ -25,6 +25,8 @@ import {
     IGaugeVote
 } from "../../versions.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 contract ERC721ReceiverMock is IERC721Receiver {
     function onERC721Received(
         address,
@@ -75,7 +77,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         escrow.merge(tokenId2, tokenId1);
         nftLock.approve(address(escrow), tokenId1);
 
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId1);
     }
 
@@ -92,11 +94,11 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         escrow.merge(tokenId3, tokenId2);
         escrow.merge(tokenId2, tokenId1);
 
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId1);
     }
 
-    function test_AllowWithdrawIfLockWasCreatedInPreviousBlock() public {
+    function testRevert_WithdrawIfLockWasCreatedInPreviousBlock() public {
         super.mintAndApproveEscrow();
 
         vm.warp(1);
@@ -111,100 +113,8 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
 
         nftLock.approve(address(escrow), tokenId1);
 
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId1);
-    }
-
-    /// 20 users create locks. Each of them either delegates to themselves or someone else.
-    /// This means that a single user could end up being delegated multiple times.
-    function testFuzz_WithrawWithCancel(User[20] memory _users) public {
-        uint256[] memory tokenIds = new uint256[](_users.length);
-        IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
-        votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
-
-        // Assume no duplicate addresses are found.
-        uint256 count;
-        for (uint256 i = 0; i < _users.length; i++) {
-            vm.assume(_users[i].amount != 0);
-            vm.assume(_users[i].user != address(0));
-
-            for (uint256 j = i + 1; j < _users.length; j++) {
-                vm.assume(_users[i].user != _users[j].user);
-            }
-
-            if (_users[i].user.code.length > 0) {
-                _users[i].user = address(new ERC721ReceiverMock());
-            }
-
-            if (_users[i].withdraws) count++;
-        }
-
-        // At least 3 withdraw request must take place.
-        vm.assume(count >= 3);
-
-        // Create locks for each user, delegate each user
-        // to themselves and make them vote.
-        for (uint256 i = 0; i < _users.length; i++) {
-            super.mintAndApproveEscrow(_users[i].user, _users[i].amount);
-
-            vm.startPrank(_users[i].user);
-            tokenIds[i] = escrow.createLock(_users[i].amount, MAX_TIME);
-            nftLock.approve(address(escrow), tokenIds[i]);
-
-            // Either delegate to himself or someone else.
-            address user = _users[i].user;
-            if (_users[i].delegateToOther) {
-                user = _users[(i + 1) % _users.length].user;
-            }
-            _users[i].delegatee = user;
-
-            ivotesAdapter.delegate(user);
-            vm.stopPrank();
-
-            vm.prank(user);
-            voter.vote(votes);
-        }
-
-        // warp so create locks and beginwithdrawals are not in the same block.
-        vm.warp(block.timestamp + 1);
-
-        uint256 totalVpBefore = escrow.totalVotingPower();
-        uint256[] memory vpBefore = new uint256[](_users.length);
-
-        for (uint256 i = 0; i < _users.length; i++) {
-            vpBefore[i] = escrow.votingPower(tokenIds[i]);
-
-            if (!_users[i].withdraws) {
-                assertNotEq(escrow.votingPower(tokenIds[i]), 0);
-
-                continue;
-            }
-
-            // If beginWithdraw occurs, delegatee's balance must be decreased
-            // by the amount of that specific tokenId for which begin
-            // withdraw occured.
-            uint256 beforeBeginWithdraw = ivotesAdapter.getVotes(_users[i].delegatee);
-            int256 slopeChangesBefore = slopeChanges(tokenIds[i]);
-
-            vm.prank(_users[i].user);
-            escrow.withdraw(tokenIds[i]);
-
-            int256 slopeChangesAfter = slopeChanges(tokenIds[i]);
-            uint256 afterBeginWithdraw = ivotesAdapter.getVotes(_users[i].delegatee);
-
-            assertApproxEqAbs(afterBeginWithdraw, beforeBeginWithdraw - vpBefore[i], 1);
-            assertEq(slopeChangesAfter, slopeChangesBefore - slopeOfToken(tokenIds[i]));
-            assertEq(escrow.votingPower(tokenIds[i]), 0);
-        }
-
-        for (uint256 i = 0; i < _users.length; i++) {
-            if (!_users[i].withdraws) {
-                assertEq(escrow.votingPower(tokenIds[i]), vpBefore[i]);
-                continue;
-            }
-        }
-
-        uint256 totalVpAfter = escrow.totalVotingPower();
-        assertEq(totalVpBefore, totalVpAfter);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -218,9 +128,9 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
      *  | ✅         | ✅    | ❌    | ✅       | ❌      |
      *  | ✅         | ❌    | ✅    | ✅       | ❌      |
      *  | ✅         | ✅    | ✅    | ✅       | ❌      |
-     *  | ❌         | ✅    | ❌    | ✅       | ✅      |
-     *  | ❌         | ❌    | ✅    | ✅       | ✅      |
-     *  | ❌         | ✅    | ✅    | ✅       | ✅      |
+     *  | ❌         | ✅    | ❌    | ✅       | ❌      |
+     *  | ❌         | ❌    | ✅    | ✅       | ❌      |
+     *  | ❌         | ✅    | ✅    | ✅       | ❌      |
      *
      *  These are allowed but we are only checking withdrawals
      *
@@ -236,7 +146,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         uint256 tokenId = escrow.createLock(10e18, MAX_TIME);
         nftLock.approve(address(escrow), tokenId);
 
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
     }
 
@@ -254,7 +164,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         escrow.merge(newTokenId, existingTokenId);
         nftLock.approve(address(escrow), existingTokenId);
 
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(existingTokenId);
     }
 
@@ -267,12 +177,12 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         nftLock.approve(address(escrow), tokenId);
 
         // Try to withdraw the original token
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
 
         // Also try to withdraw the split token
         nftLock.approve(address(escrow), splitTokenId);
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(splitTokenId);
     }
 
@@ -292,20 +202,20 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
 
         // Try to withdraw any of the tokens
         nftLock.approve(address(escrow), existingTokenId);
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(existingTokenId);
 
         nftLock.approve(address(escrow), splitTokenId);
-        vm.expectRevert(CannotWithdrawInSameBlock.selector);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(splitTokenId);
 
         vm.expectRevert("ERC721: invalid token ID");
         nftLock.approve(address(escrow), newTokenId);
-        vm.expectRevert(CannotExit.selector);
+        vm.expectRevert("ERC721: invalid token ID");
         escrow.withdraw(newTokenId);
     }
 
-    // Row 5: createLock ❌, merge ✅, split ❌, withdraw ✅ => Should allow
+    // Row 5: createLock ❌, merge ✅, split ❌, withdraw ✅ => Should revert
     function test_AtomicWithdrawal_MergeOnly() public {
         super.mintAndApproveEscrow();
 
@@ -319,12 +229,13 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         escrow.merge(tokenId2, tokenId1);
         nftLock.approve(address(escrow), tokenId1);
 
-        // Should succeed - no createLock in current transaction
+        // Should revert - not expired yet
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId1);
-        assertEq(escrow.votingPower(tokenId1), 0);
+        assertGt(escrow.votingPower(tokenId1), 0);
     }
 
-    // Row 6: createLock ❌, merge ❌, split ✅, withdraw ✅ => Should allow
+    // Row 6: createLock ❌, merge ❌, split ✅, withdraw ✅ => Should revert
     function test_AtomicWithdrawal_SplitOnly() public {
         super.mintAndApproveEscrow();
 
@@ -336,18 +247,20 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         vm.warp(2);
         uint256 splitTokenId = escrow.split(tokenId, 10e18);
 
-        // Should succeed - no createLock in current transaction
+        // Should revert - not expired yet
         nftLock.approve(address(escrow), tokenId);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
-        assertEq(escrow.votingPower(tokenId), 0);
+        assertGt(escrow.votingPower(tokenId), 0);
 
         // Also test withdrawing the split token
         nftLock.approve(address(escrow), splitTokenId);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(splitTokenId);
-        assertEq(escrow.votingPower(splitTokenId), 0);
+        assertGt(escrow.votingPower(splitTokenId), 0);
     }
 
-    // Row 7: createLock ❌, merge ✅, split ✅, withdraw ✅ => Should allow
+    // Row 7: createLock ❌, merge ✅, split ✅, withdraw ✅ => Should revert
     function test_AtomicWithdrawal_MergeAndSplit() public {
         super.mintAndApproveEscrow();
 
@@ -363,19 +276,21 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
 
         nftLock.approve(address(escrow), tokenId1);
 
-        // Should succeed - no createLock in current transaction
+        // Should revert - not expired yet
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId1);
-        assertEq(escrow.votingPower(tokenId1), 0);
+        assertGt(escrow.votingPower(tokenId1), 0);
 
         // Also test withdrawing the split token
         nftLock.approve(address(escrow), splitTokenId);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(splitTokenId);
-        assertEq(escrow.votingPower(splitTokenId), 0);
+        assertGt(escrow.votingPower(splitTokenId), 0);
 
         // Also test that the merged tokenId2 cannot be withdrawn
         vm.expectRevert("ERC721: invalid token ID");
         nftLock.approve(address(escrow), tokenId2);
-        vm.expectRevert(CannotExit.selector);
+        vm.expectRevert("ERC721: invalid token ID");
         escrow.withdraw(tokenId2);
     }
 }

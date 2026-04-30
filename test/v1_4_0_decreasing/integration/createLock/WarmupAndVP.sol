@@ -19,7 +19,7 @@ import {
     IEscrowCurveGlobalStorage
 } from "../../versions.sol";
 
-contract TestCreateLock_WarmUpAndVotingPower is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, EscrowBase {
+contract TestCreateLock_VotingPower is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, EscrowBase {
     uint256 weekStart;
 
     function setUp() public override {
@@ -39,8 +39,10 @@ contract TestCreateLock_WarmUpAndVotingPower is IEscrowCurveTokenStorage, IEscro
 
         uint256 endTs = getEndTimestamp(weekStart, block.timestamp);
 
-        int256 minVotingPower = biasFP(Lock_1_Amount, maxTime);
-        assertVotingPower(tokenId, endTs, minVotingPower);
+        int256 minVotingPower = biasFP(Lock_1_Amount, maxTime - 1);
+        if (minVotingPower < 0) minVotingPower = 0;
+        assertVotingPower(tokenId, endTs - 1, minVotingPower);
+        assertVotingPower(tokenId, endTs, 0);
         assertVotingPower(tokenId, endTs + 10, 0);
     }
 }

@@ -84,4 +84,10 @@ contract CurveBase is TestHelpers, FixedPointBase, ILockedBalanceDecreasing {
     }
 
     function _getEmptyLockedBalance() internal pure returns (LockedBalanceDecreasing memory) {}
+    function _lockedBalanceToDecreasing(LockedBalance memory _b) internal returns (LockedBalanceDecreasing memory) {
+        return LockedBalanceDecreasing(_b, _b.start);
+    }
+    function _lockedBalanceToDecreasing(uint208 _amount, uint48 _start) internal returns (LockedBalanceDecreasing memory) {
+        return LockedBalanceDecreasing(LockedBalance(_amount, _start), uint256(_start));
+    }
 }

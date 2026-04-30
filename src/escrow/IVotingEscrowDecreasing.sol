@@ -36,7 +36,7 @@ interface IVotingEscrowCoreErrors {
     error OnlyIVotesAdapter();
     error AddressAlreadySet();
     error CannotExit();
-    error CannotWithdrawInSameBlock();
+    error CannotWithdrawUntilExpiry();
 }
 
 interface IVotingEscrowCoreEvents {

@@ -164,13 +164,12 @@ contract EscrowBase is
         escrow.setIVotesAdapter(address(ivotesAdapter));
     }
 
-    modifier givenExistingLock() {
+    function _givenExistingLock() internal {
         vm.warp(block.timestamp + 1 hours);
         uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
 
         Lock_1_ts = block.timestamp;
         Lock_1_start = (block.timestamp / checkpointInterval) / checkpointInterval;
-        _;
     }
 
     function mintAndApproveEscrow() internal {

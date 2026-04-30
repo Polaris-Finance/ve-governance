@@ -40,8 +40,8 @@ contract TestDecreasingCurveLogic is CurveBase {
     function testCannotWriteNewCheckpointInPast() public {
         vm.warp(2 weeks + 1 hours);
 
-        LockedBalanceDecreasing memory first = LockedBalanceDecreasing(LockedBalance({amount: 100, start: 2 weeks}), 0);
-        LockedBalanceDecreasing memory second = LockedBalanceDecreasing(LockedBalance({amount: 200, start: 1 weeks}), 0);
+        LockedBalanceDecreasing memory first = _lockedBalanceToDecreasing(100, 2 weeks);
+        LockedBalanceDecreasing memory second = _lockedBalanceToDecreasing(200, 1 weeks);
 
         escrow.checkpoint(1, _getEmptyLockedBalance(), first);
         vm.expectRevert(InvalidCheckpoint.selector);
@@ -52,20 +52,14 @@ contract TestDecreasingCurveLogic is CurveBase {
         vm.warp(3 weeks);
 
         vm.expectRevert(CheckpointOnDepositIntervalNotAllowed.selector);
-        escrow.checkpoint(1, _getEmptyLockedBalance(), LockedBalanceDecreasing(LockedBalance({amount: 100, start: 3 weeks}), 0));
+        escrow.checkpoint(1, _getEmptyLockedBalance(), _lockedBalanceToDecreasing(100, 3 weeks));
     }
 
     function testCannotMergeIfNonMatureWithDifferentStartDates() public {
         vm.warp(2 weeks + 1 hours);
 
-        LockedBalanceDecreasing memory first = LockedBalanceDecreasing(
-            LockedBalance({amount: 100, start: 2 weeks}),
-            0
-        );
-        LockedBalanceDecreasing memory second = LockedBalanceDecreasing(
-            LockedBalance({amount: 200, start: 2 weeks + 1 hours}),
-            0
-        );
+        LockedBalanceDecreasing memory first = _lockedBalanceToDecreasing(100, 2 weeks);
+        LockedBalanceDecreasing memory second = _lockedBalanceToDecreasing(200, 2 weeks + 1 hours);
 
         vm.expectRevert(abi.encodeWithSelector(InvalidLocks.selector, 1, first, second));
         escrow.checkpoint(1, first, second);
@@ -74,31 +68,15 @@ contract TestDecreasingCurveLogic is CurveBase {
     function testCanWriteNewCheckpointsAtSameTime() public {
         vm.warp(1 weeks + 1 hours);
 
-        LockedBalanceDecreasing memory first = LockedBalanceDecreasing(
-            LockedBalance({amount: 100, start: 1 weeks}),
-            0
-        );
-        LockedBalanceDecreasing memory second = LockedBalanceDecreasing(
-            LockedBalance({amount: 200, start: 1 weeks}),
-            0
-        );
+        LockedBalanceDecreasing memory first = _lockedBalanceToDecreasing(100, 1 weeks);
+        LockedBalanceDecreasing memory second = _lockedBalanceToDecreasing(300, 1 weeks);
 
         escrow.checkpoint(1, _getEmptyLockedBalance(), first);
-        escrow.checkpoint(
-            1,
-            first,
-            LockedBalanceDecreasing(
-                LockedBalance({amount: first.lockedBalance.amount + second.lockedBalance.amount, start: 1 weeks}),
-                0
-            )
-        );
+        escrow.checkpoint(1, first, second);
 
         // check we have only 1 token interval
         assertEq(curve.tokenPointIntervals(1), 1);
-        assertEq(
-            curve.tokenPointHistory(1, 1).bias.toInt256(),
-            biasFP(100, 1 hours) + biasFP(200, 1 hours)
-        );
-        assertEq(curve.tokenPointHistory(1, 1).slope, slopeFP(200) + slopeFP(100));
+        assertEq(curve.tokenPointHistory(1, 1).bias.toInt256(), biasFP(second.lockedBalance.amount, 0));
+        assertEq(curve.tokenPointHistory(1, 1).slope, slopeFP(second.lockedBalance.amount));
     }
 }
