@@ -54,8 +54,8 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
 
         uint256 end = getEndTimestamp(weekStartTs, currentTs);
         
-        int256 LOCK_1_MAX = biasFP(Lock_1_Amount, end - weekStartTs);
-        int256 LOCK_2_MAX = biasFP(Lock_2_Amount, end - weekStartTs);
+        int256 Lock_1_min = biasFP(Lock_1_Amount, end - weekStartTs - 1);
+        int256 Lock_2_min = biasFP(Lock_2_Amount, end - weekStartTs - 1);
 
         // 1
         assertTotalSupply(currentTs, currentTotalBiasFP);
@@ -67,8 +67,9 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         );
 
         // 3
-        assertTotalSupply(end, LOCK_1_MAX + LOCK_2_MAX);
-        assertTotalSupply(end + 10, LOCK_1_MAX + LOCK_2_MAX);
+        assertTotalSupply(end - 1, Lock_1_min + Lock_2_min);
+        assertTotalSupply(end, 0);
+        assertTotalSupply(end + 10, 0);
     }
 
     function test_Merge_WhenMature_SameStartDate() public {
@@ -80,8 +81,8 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         uint256 weekStartTs = weekStartTs(block.timestamp);
 
         uint256 end = weekStartTs + maxTime;
-        int256 LOCK_1_MAX = biasFP(Lock_1_Amount, end - weekStartTs);
-        int256 LOCK_2_MAX = biasFP(Lock_2_Amount, end - weekStartTs);
+        int256 Lock_1_min = biasFP(Lock_1_Amount, end - weekStartTs - 1);
+        int256 Lock_2_min = biasFP(Lock_2_Amount, end - weekStartTs - 1);
 
         vm.warp(end + 1 hours);
         escrow.merge(from, to);
@@ -91,7 +92,7 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         uint256 fromLatestEpoch = curve.tokenPointLatestIndex(from);
         assertEq(fromLatestEpoch, 2);
 
-        int256 currentTotalBiasFP = LOCK_1_MAX + LOCK_2_MAX;
+        int256 currentTotalBiasFP = Lock_1_min + Lock_2_min;
 
         // 1, 2
         assertTotalSupply(currentTs - 1, currentTotalBiasFP);
@@ -119,13 +120,10 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
 
         uint256 currentTs = block.timestamp;
 
-        int256 currentTotalBiasFP = biasFP(Lock_1_Amount, fromLockEnd - fromLockWeekStart) +
-            biasFP(Lock_2_Amount, toLockEnd - toLockWeekStart);
-
         // 1, 2
-        assertTotalSupply(currentTs - 1, currentTotalBiasFP);
-        assertTotalSupply(currentTs, currentTotalBiasFP);
-        assertTotalSupply(currentTs + 1, currentTotalBiasFP);
+        assertTotalSupply(currentTs - 1, 0);
+        assertTotalSupply(currentTs, 0);
+        assertTotalSupply(currentTs + 1, 0);
     }
 
 
@@ -172,7 +170,7 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         int256 bias;
         
         if (_mergeTime >= toLockEnd) {
-            bias = biasFP(_lock1Amount, maxTime) + biasFP(_lock2Amount, maxTime);
+            bias = 0;
         } else {
             bias =
                 biasFP(_lock1Amount, _mergeTime - fromLockWeekTs) +

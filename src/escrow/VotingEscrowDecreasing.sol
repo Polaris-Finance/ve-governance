@@ -433,18 +433,18 @@ contract VotingEscrowDecreasing is
             IDelegateMoveVoteRecipient.TokenLock(ownerFrom, _to, oldLockedTo.lockedBalance)
         );
 
+        uint256 startTime = IClock(clock).epochPrevCheckpointTs();
+
         // Update for `_from`.
-        // Note that on the checkpoint, we still don't
-        // remove `start` for historical reasons.
         IERC721EMB(lockNFT).burn(_from);
         _locked[_from] = LockedBalanceDecreasing(LockedBalance(0, 0), 0);
-        _checkpoint(_from, oldLockedFrom, LockedBalanceDecreasing(LockedBalance(0, oldLockedFrom.lockedBalance.start), oldLockedFrom.effectiveStart));
+        _checkpoint(_from, oldLockedFrom, LockedBalanceDecreasing(LockedBalance(0, oldLockedFrom.lockedBalance.start), startTime));
 
         // update for `_to`.
         uint208 newLockedAmount = oldLockedFrom.lockedBalance.amount + oldLockedTo.lockedBalance.amount;
         LockedBalanceDecreasing memory newOldLockedTo = LockedBalanceDecreasing(
             LockedBalance(newLockedAmount, oldLockedTo.lockedBalance.start),
-            oldLockedTo.effectiveStart
+            startTime
         );
         _checkpoint(_to, oldLockedTo, newOldLockedTo);
         _locked[_to] = newOldLockedTo;

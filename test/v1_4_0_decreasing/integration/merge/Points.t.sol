@@ -52,8 +52,8 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         // 1
         assertTokenPoint(from, 1, 0, 0, weekStartTs);
 
-        int256 currentTotalBiasFP = biasFP(Lock_1_Amount, block.timestamp - weekStartTs) +
-            biasFP(Lock_2_Amount, block.timestamp - weekStartTs);
+        int256 currentTotalBiasFP = biasFP(Lock_1_Amount, 0) +
+            biasFP(Lock_2_Amount, 0);
 
         int256 totalSlopeFP = slopeFP(Lock_1_Amount) + slopeFP(Lock_2_Amount);
 
@@ -87,22 +87,22 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         uint256 weekStartTs = weekStartTs(block.timestamp);
 
         uint256 end = weekStartTs + maxTime;
-        int256 LOCK_1_MAX = biasFP(Lock_1_Amount, end - weekStartTs);
-        int256 LOCK_2_MAX = biasFP(Lock_2_Amount, end - weekStartTs);
+        int256 Lock_1_min = biasFP(Lock_1_Amount, end - weekStartTs - 1);
+        int256 Lock_2_min = biasFP(Lock_2_Amount, end - weekStartTs - 1);
 
         vm.warp(end + 1 hours);
         escrow.merge(from, to);
 
         // 1
-        assertTokenPoint(from, 2, 0, 0, weekStartTs);
+        assertTokenPoint(from, 2, 0, 0, end);
 
         // 2
         // since merge occured in the different block than `createLock`,
         // it should  cause extra epoch for user.
-        int256 currentTotalBiasFP = LOCK_1_MAX + LOCK_2_MAX;
+        int256 currentTotalBiasFP = Lock_1_min + Lock_2_min;
         int256 totalSlopeFP = slopeFP(Lock_1_Amount + Lock_2_Amount);
 
-        assertTokenPoint(to, 2, currentTotalBiasFP, 0, weekStartTs);
+        assertTokenPoint(to, 2, currentTotalBiasFP, 0, end);
 
         // 3
         uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 2;
@@ -139,7 +139,7 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             2, // latestIndex
             0,
             0,
-            fromLockWeekStart
+            toLockEnd
         );
 
         int256 currentTotalBiasFP = biasFP(Lock_1_Amount, fromLockEnd - fromLockWeekStart) +
@@ -151,7 +151,7 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             2, // latestIndex
             currentTotalBiasFP,
             0,
-            toLockWeekStart
+            toLockEnd
         );
 
         // 3

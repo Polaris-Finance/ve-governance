@@ -39,7 +39,9 @@ contract FixedPointBase {
     }
 
     function bias(uint256 _amount, uint256 _duration) internal view returns (uint256 bias_) {
-        return (biasFP(_amount, _duration) / 1e18).toUint256();
+        int256 biasSigned = biasFP(_amount, _duration) / 1e18;
+        if (biasSigned < 0) biasSigned = 0;
+        return biasSigned.toUint256();
     }
 
     function weekStartTs(uint256 _time) internal view returns (uint256) {

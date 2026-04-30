@@ -227,7 +227,7 @@ contract TestVPAndCheckpoints is Base {
 
         uint256 expectedTs = block.timestamp;
 
-        assertGlobalPoint(alice, 2, biasFP(amount, maxTime), 0, expectedTs);
+        assertGlobalPoint(alice, 2, 0, 0, expectedTs);
     }
 
     /*//////////////////////////////////////////////////////////////
