@@ -295,22 +295,9 @@ contract EscrowBase is
         // How many weeks between the first lock and the last lock.
         uint256 count = (_mergeTime - fromLockWeekStartTs) / 1 weeks;
 
-        // If merge time is not exactly matching the week start time,
-        // it wouldn't be included in week count above.
-        if (_mergeTime != mergeWeekStartTs) {
-            count++;
-        }
-
         // Add one more for the first lock, as it also
         // wouldn't be included in week counts.
         count++;
-
-        // Add one more only if second lock's ts doesn't match the week ts.
-        if (_secondLockTime != _firstLockTime && _secondLockTime != _mergeTime) {
-            if ((_secondLockTime % 1 weeks) != 0) {
-                count++;
-            }
-        }
 
         return count;
     }

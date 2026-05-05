@@ -104,7 +104,7 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         // 2. timestamp on the token and global point should be block.timestamp and start must be current week
         // 3. bias and slope on the last global point must include both lock's bias and slope summed up till this point.
         // 4. should schedule slope changes at their according end dates.
-        vm.warp(block.timestamp + checkpointInterval);
+        vm.warp(block.timestamp + checkpointInterval * 2);
 
         escrow.createLock(Lock_2_Amount, MAX_TIME);
 
@@ -135,7 +135,7 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         _givenExistingLock();
 
         // Given: prior locks exists and current timestamp is after its end date.
-        // 1. should be `X`(X = howmanyweeksbetween + 2) entry point in global history and one entry point in each lock's token point.
+        // 1. should be `X`(X = howmanyweeksbetween + 1) entry point in global history and one entry point in each lock's token point.
         // 2. timestamp on the token and global point should be block.timestamp and start must be current week
         // 3. slope on the last global point must only include 2nd lock's slope and bias must include first lock's max + second lock's bias till this point.
         // 4. should schedule slope changes at their according end dates.
@@ -157,12 +157,12 @@ contract TestCreateLock_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         assertTokenPoint(2, 1, token2BiasFP, slopeFP(Lock_2_Amount), weekStartTs);
 
         // 2, 3
-        // lastIndex is `howManyWeeksBetween + 2`. We add 2 because the first lock and last lock.
-        // Calculate how many weeks between our locks + 2 as last lock's record and new lock's record.
-        uint256 lastIndex = (currentTime - Lock_1_start) / checkpointInterval + 2;
+        // lastIndex is `howManyWeeksBetween + 1`. We add 1 because the first lock and last lock.
+        // Calculate how many weeks between our locks + 1 as last lock's record and new lock's record.
+        uint256 lastIndex = (currentTime - Lock_1_start) / checkpointInterval + 1;
         assertGlobalPoint(
             lastIndex,
-            biasFP(Lock_1_Amount, Lock_1_end - Lock_1_start) + token2BiasFP,
+            biasFPCapped(Lock_1_Amount, Lock_1_end - Lock_1_start) + token2BiasFP,
             slopeFP(Lock_2_Amount),
             weekStartTs
         );

@@ -99,14 +99,13 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         // 2
         // since merge occured in the different block than `createLock`,
         // it should  cause extra epoch for user.
-        int256 currentTotalBiasFP = Lock_1_min + Lock_2_min;
         int256 totalSlopeFP = slopeFP(Lock_1_Amount + Lock_2_Amount);
 
-        assertTokenPoint(to, 2, currentTotalBiasFP, 0, end);
+        assertTokenPoint(to, 2, 0, 0, end);
 
         // 3
-        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 2;
-        assertGlobalPoint(lastIndex, currentTotalBiasFP, 0, weekStartTs);
+        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 1;
+        assertGlobalPoint(lastIndex, 0, 0, end);
 
         // 4
         assertEq(slopeChanges(end), totalSlopeFP);
@@ -142,8 +141,8 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             toLockEnd
         );
 
-        int256 currentTotalBiasFP = biasFP(Lock_1_Amount, fromLockEnd - fromLockWeekStart) +
-            biasFP(Lock_2_Amount, toLockEnd - toLockWeekStart);
+        int256 currentTotalBiasFP = biasFPCapped(Lock_1_Amount, fromLockEnd - fromLockWeekStart) +
+            biasFPCapped(Lock_2_Amount, toLockEnd - toLockWeekStart);
 
         // 2
         assertTokenPoint(
@@ -155,8 +154,8 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         );
 
         // 3
-        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 3;
-        assertGlobalPoint(lastIndex, currentTotalBiasFP, 0, fromLockWeekStart);
+        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 1;
+        assertGlobalPoint(lastIndex, currentTotalBiasFP, 0, toLockEnd);
 
         // 4
         assertEq(slopeChanges(fromLockEnd), slopeFP(Lock_1_Amount));
@@ -202,6 +201,7 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         uint256 toLockWeekTs = weekStartTs(_toLockTime);
         uint256 fromLockEnd = fromLockWeekTs + maxTime;
         uint256 toLockEnd = toLockWeekTs + maxTime;
+        uint256 mergeTs = weekStartTs(_mergeTime);
 
         assertTokenPoint(
             from,
@@ -211,7 +211,7 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             _mergeTime == _fromLockTime ? 1 : 2,
             0,
             0,
-            fromLockWeekTs
+            mergeTs
         );
 
 
@@ -219,13 +219,12 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             int256 bias;
 
             if (_mergeTime >= toLockEnd) {
-                bias = biasFP(_lock1Amount, maxTime) + biasFP(_lock2Amount, maxTime);
+                bias = biasFPCapped(_lock1Amount, maxTime) + biasFPCapped(_lock2Amount, maxTime);
             } else {
                 bias =
-                    biasFP(_lock1Amount, _mergeTime - fromLockWeekTs) +
-                    biasFP(_lock2Amount, _mergeTime - toLockWeekTs);
+                    biasFPCapped(_lock1Amount, mergeTs - fromLockWeekTs) +
+                    biasFPCapped(_lock2Amount, mergeTs - toLockWeekTs);
             }
-            
 
             int256 slope = 0;
             if (_mergeTime < toLockEnd) {
@@ -240,14 +239,14 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
                 _mergeTime == _toLockTime ? 1 : 2,
                 bias,
                 slope,
-                toLockWeekTs
+                mergeTs
             );
 
             assertGlobalPoint(
                 expectedIndex(_fromLockTime, _toLockTime, _mergeTime),
                 bias,
                 slope,
-                fromLockWeekTs
+                mergeTs
             );
         }
 

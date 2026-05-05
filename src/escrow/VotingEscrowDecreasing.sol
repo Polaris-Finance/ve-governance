@@ -491,10 +491,11 @@ contract VotingEscrowDecreasing is
             revert AmountTooSmall();
         }
 
+        uint256 startTime = IClock(clock).epochPrevCheckpointTs();
         // update for `_from`.
         LockedBalanceDecreasing memory newFromLocked = LockedBalanceDecreasing(
             LockedBalance(amount1, locked_.lockedBalance.start),
-            locked_.effectiveStart
+            startTime
         );
         _checkpoint(_from, locked_, newFromLocked);
         _locked[_from] = newFromLocked;
@@ -513,7 +514,10 @@ contract VotingEscrowDecreasing is
 
         // update for `newTokenId`.
         locked_.lockedBalance.amount = amount2;
-        _createSplitNFT(owner, newTokenId, locked_);
+        locked_.effectiveStart = startTime;
+        _locked[newTokenId] = locked_;
+        _checkpoint(newTokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), locked_);
+        IERC721EMB(lockNFT).mint(owner, newTokenId);
 
         emit Split(_from, newTokenId, sender, amount1, amount2);
 
@@ -533,20 +537,6 @@ contract VotingEscrowDecreasing is
         if (!isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
         return (sender, owner);
-    }
-
-    /// @notice creates a new token in checkpoint and mint.
-    /// @param _to The address to which new token id will be minted
-    /// @param _tokenId The id of the token that will be minted.
-    /// @param _newLocked New locked amount / start lock time for the new token
-    function _createSplitNFT(
-        address _to,
-        uint256 _tokenId,
-        LockedBalanceDecreasing memory _newLocked
-    ) private {
-        _locked[_tokenId] = _newLocked;
-        _checkpoint(_tokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), _newLocked);
-        IERC721EMB(lockNFT).mint(_to, _tokenId);
     }
 
     /// @notice Record per-user data to checkpoints. Used by VotingEscrow system.

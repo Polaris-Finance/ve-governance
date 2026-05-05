@@ -121,11 +121,11 @@ contract TestCreateLock_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
         );
         assertTotalSupply(
             Lock_1_end,
-            biasFP(Lock_2_Amount, Lock_1_end - weekStartTs)
+            biasFPCapped(Lock_2_Amount, Lock_1_end - weekStartTs)
         );
         assertTotalSupply(
             Lock_1_end + 10,
-            biasFP(Lock_2_Amount, Lock_1_end + 10 - weekStartTs)
+            biasFPCapped(Lock_2_Amount, Lock_1_end + 10 - weekStartTs)
         );
 
         // 4

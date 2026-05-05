@@ -38,10 +38,14 @@ contract FixedPointBase {
         return _amount.toInt256() * int256(1e18) + slope * _duration.toInt256();
     }
 
+    function biasFPCapped(uint256 _amount, uint256 _duration) internal view returns (int256) {
+        int256 bias = biasFP(_amount, _duration);
+        if (bias < 0) bias = 0;
+        return bias;
+    }
+
     function bias(uint256 _amount, uint256 _duration) internal view returns (uint256 bias_) {
-        int256 biasSigned = biasFP(_amount, _duration) / 1e18;
-        if (biasSigned < 0) biasSigned = 0;
-        return biasSigned.toUint256();
+        return (biasFPCapped(_amount, _duration) / 1e18).toUint256();
     }
 
     function weekStartTs(uint256 _time) internal view returns (uint256) {

@@ -43,11 +43,12 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         // 4. slope changes must still include the original token's slope at the same original end.
         uint256 value = 20e18;
         uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
-        uint256 weekStartTs = weekStartTs(block.timestamp);
-        uint256 endTs = weekStartTs + maxTime;
+        uint256 weekStartTs1 = weekStartTs(block.timestamp);
+        uint256 endTs = weekStartTs1 + maxTime;
 
         // Still warp just to ensure that we changed the current timestamp
         // but not wrap after the end.
+        uint256 weekStartTs2 = weekStartTs(block.timestamp + checkpointInterval);
         vm.warp(block.timestamp + checkpointInterval);
     
         escrow.split(tokenId, value);
@@ -55,7 +56,7 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         int256 slope1 = slopeFP(Lock_1_Amount - value);
         int256 slope2 = slopeFP(value);
 
-        uint256 elapsed = block.timestamp - weekStartTs;
+        uint256 elapsed = weekStartTs2 - weekStartTs1;
 
         // 1
         assertTokenPoint(
@@ -63,18 +64,18 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             2,
             biasFP(Lock_1_Amount - value, elapsed),
             slope1,
-            weekStartTs
+            weekStartTs2
         );
 
         // 2
-        assertTokenPoint(2, 1, biasFP(value, elapsed), slope2, weekStartTs);
+        assertTokenPoint(2, 1, biasFP(value, elapsed), slope2, weekStartTs2);
 
         // 3
         assertGlobalPoint(
-            3,
+            2,
             biasFP(Lock_1_Amount, elapsed),
             slopeFP(Lock_1_Amount),
-            block.timestamp
+            weekStartTs2
         );
 
         // 4
@@ -88,30 +89,30 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         // 4. slope changes must still include the original token's slope at the same original end.
         uint256 value = 20e18;
         uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
-        uint256 weekStartTs = weekStartTs(block.timestamp);
-        uint256 endTs = weekStartTs + maxTime;
+        uint256 weekStartTs1 = weekStartTs(block.timestamp);
+        uint256 endTs = weekStartTs1 + maxTime;
 
         // warp after the token end so it's mature.
         vm.warp(endTs + 1 hours);
 
         escrow.split(tokenId, value);
-        uint256 elapsed = endTs - weekStartTs;
+        uint256 elapsed = endTs - weekStartTs1;
 
         // 1
         assertTokenPoint(
             tokenId,
             2,
-            biasFP(Lock_1_Amount - value, elapsed),
+            biasFPCapped(Lock_1_Amount - value, elapsed),
             0,
-            weekStartTs
+            endTs
         );
 
         // 2
-        assertTokenPoint(2, 1, biasFP(value, elapsed), 0, weekStartTs);
+        assertTokenPoint(2, 1, biasFPCapped(value, elapsed), 0, endTs);
 
         // 3
-        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 2;
-        assertGlobalPoint(lastIndex, biasFP(Lock_1_Amount, elapsed), 0, block.timestamp);
+        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 1;
+        assertGlobalPoint(lastIndex, biasFPCapped(Lock_1_Amount, elapsed), 0, endTs);
 
         // 4
         assertEq(slopeChanges(endTs), slopeFP(Lock_1_Amount));

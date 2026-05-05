@@ -280,7 +280,9 @@ contract LinearDecreasingCurve is
         }
 
         {
+            // TODO!!
             (uint256 normalizedTs, uint256 checkpointInterval) = IClock(clock).normalizeTimestamp(block.timestamp);
+            require(normalizedTs == _newLocked.effectiveStart, "effective start???"); // TODO
             uint256 lastPointCheckpoint = lastPoint.writtenTs;
             uint256 t_i = lastPointCheckpoint;
 
@@ -301,9 +303,8 @@ contract LinearDecreasingCurve is
                     dSlope = slopeChanges[t_i];
                 }
 
-                int256 newBias = lastPoint.bias.toInt256() + lastPoint.slope * (t_i - lastPointCheckpoint).toInt256();
-                if (newBias < 0) newBias = 0;
-                lastPoint.bias = newBias.toUint256();
+                //int256 newBias = lastPoint.bias.toInt256() + lastPoint.slope * (t_i - lastPointCheckpoint).toInt256();
+                lastPoint.bias = _getBias(t_i - lastPointCheckpoint, lastPoint.bias.toInt256(), lastPoint.slope);
 
                 lastPoint.slope -= dSlope;
                 if (lastPoint.slope > 0) lastPoint.slope = 0;
@@ -338,11 +339,17 @@ contract LinearDecreasingCurve is
             revert InvalidLocks(_tokenId, _fromLocked, _newLocked);
         }
 
+        // newLocked could be ended in case of merge, when
+        // a token is already mature.
+        if (newLockedEnd <= _newLocked.effectiveStart) {
+            newLockSlope = 0;
+        }
+
         (uint256 oldLockBias, int256 oldLockSlope) = (0, 0);
 
         if (_fromLocked.lockedBalance.amount > 0) {
             (oldLockBias, oldLockSlope) = _getBiasAndSlope(
-                _fromLocked.effectiveStart - _fromLocked.lockedBalance.start,
+                _newLocked.effectiveStart - _fromLocked.lockedBalance.start,
                 _fromLocked.lockedBalance.amount
             );
 
