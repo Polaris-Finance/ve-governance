@@ -31,6 +31,8 @@ import {
     DaoAuthorizableUpgradeable as DaoAuthorizable
 } from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizableUpgradeable.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 /// @title Linear Decreasing Escrow Curve
 contract LinearDecreasingCurve is
     IEscrowCurve,
@@ -375,7 +377,7 @@ contract LinearDecreasingCurve is
 
         // The token point already exists..
         if (tokenLatestIndex > 0) {
-            if (fromLockedEnd > block.timestamp) {
+            if (fromLockedEnd > _newLocked.effectiveStart) {
                 slopeChanges[fromLockedEnd] -= oldLockSlope;
             }
         }
@@ -507,12 +509,17 @@ contract LinearDecreasingCurve is
         GlobalPoint memory _point = _globalPointHistory[epoch_];
 
         int256 bias = _point.bias.toInt256();
+        console2.log("");
+        console2.log("-- supplyAt");
+        console2.log(bias.toUint256(), "bias");
         int256 slope = _point.slope;
         uint256 ts = _point.writtenTs; // changes in for loop.
+        uint256 t_i = ts;
 
-        (uint256 t_i, uint256 checkpointInterval) = IClock(clock).normalizeTimestamp(ts);
+        uint256 checkpointInterval = IClock(clock).checkpointInterval();
 
         for (uint256 i = 0; i < 255; ++i) {
+            //console2.log(i, "i");
             t_i += checkpointInterval;
             int256 dSlope = 0;
 
@@ -520,9 +527,14 @@ contract LinearDecreasingCurve is
                 t_i = _timestamp;
             } else {
                 dSlope = slopeChanges[t_i];
+                //console2.log(dSlope);
             }
 
             bias += slope * int256(t_i - ts);
+            //console2.log((-slope).toUint256(), "slope");
+            //console2.log(t_i - ts, "time");
+            //console2.log((-slope * int256(t_i - ts)).toUint256(), "delta");
+            //console2.log(bias.toUint256(), "bias");
 
             if (t_i == _timestamp) {
                 break;
@@ -530,6 +542,16 @@ contract LinearDecreasingCurve is
             slope -= dSlope;
             ts = t_i;
         }
+        console2.log(bias.toUint256(), "bias");
+        uint256 totalTime = (_timestamp - _point.writtenTs) / checkpointInterval * 604800;
+        uint256 decline = (-_point.slope).toUint256() * totalTime;
+        uint256 finalBias = _point.bias - decline;
+        console2.log(_timestamp - _point.writtenTs, "duration");
+        console2.log((_timestamp - _point.writtenTs) / checkpointInterval, "(_timestamp - _point.writtenTs) / checkpointInterval");
+        console2.log((-_point.slope).toUint256(), "slope");
+        console2.log(totalTime, "total time");
+        console2.log(decline, "decline");
+        console2.log(finalBias, "finalBias");
 
         if (bias < 0) bias = 0;
 

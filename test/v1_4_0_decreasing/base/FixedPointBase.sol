@@ -35,13 +35,19 @@ contract FixedPointBase {
 
     function biasFP(uint256 _amount, uint256 _duration) internal view returns (int256) {
         int256 slope = maxTime == 0 ? int256(0) : _amount.toInt256() * linearCoefficient;
+        console.log("");
+        console.log("-- biasFP");
+        console.log((-slope).toUint256(), "slope");
+        console.log(_amount, "_amount");
+        console.log(_duration, "_duration");
         return _amount.toInt256() * int256(1e18) + slope * _duration.toInt256();
     }
 
     function biasFPCapped(uint256 _amount, uint256 _duration) internal view returns (int256) {
-        int256 bias = biasFP(_amount, _duration);
-        if (bias < 0) bias = 0;
-        return bias;
+        int256 biasRaw = biasFP(_amount, _duration);
+        if (biasRaw < 0) biasRaw = 0;
+        console.log(biasRaw.toUint256(), "biasR");
+        return biasRaw;
     }
 
     function bias(uint256 _amount, uint256 _duration) internal view returns (uint256 bias_) {

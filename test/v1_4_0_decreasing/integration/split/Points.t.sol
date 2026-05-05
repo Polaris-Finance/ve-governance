@@ -143,6 +143,7 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
 
         uint256 fromLockWeekTs = weekStartTs(_fromLockTime);
         uint256 fromLockEnd = fromLockWeekTs + maxTime;
+        uint256 splitWeekTs = weekStartTs(_splitTime);
 
         {
             int256 bias1;
@@ -150,11 +151,11 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             int256 bias2;
             int256 slope2;
             if (_splitTime >= fromLockEnd) {
-                bias1 = biasFP(_lock1Amount - _splitValue, maxTime);
-                bias2 = biasFP(_splitValue, maxTime);
+                bias1 = biasFPCapped(_lock1Amount - _splitValue, maxTime);
+                bias2 = biasFPCapped(_splitValue, maxTime);
             } else {
-                bias1 = biasFP(_lock1Amount - _splitValue, _splitTime - fromLockWeekTs);
-                bias2 = biasFP(_splitValue, _splitTime - fromLockWeekTs);
+                bias1 = biasFPCapped(_lock1Amount - _splitValue, splitWeekTs - fromLockWeekTs);
+                bias2 = biasFPCapped(_splitValue, splitWeekTs - fromLockWeekTs);
                 slope1 = slopeFP(_lock1Amount - _splitValue);
                 slope2 = slopeFP(_splitValue);
             }
@@ -164,22 +165,22 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
                 // If the dates match, it should use
                 // a single block/record for gas efficiency,
                 // otherwise 2.
-                _splitTime == _fromLockTime ? 1 : 2,
+                splitWeekTs == fromLockWeekTs ? 1 : 2,
                 bias1,
                 slope1,
-                fromLockWeekTs
+                splitWeekTs
             );
 
-            assertTokenPoint(2, 1, bias2, slope2, fromLockWeekTs);
+            assertTokenPoint(2, 1, bias2, slope2, splitWeekTs);
         }
 
         {
             int256 bias;
             int256 slope;
             if (_splitTime >= fromLockEnd) {
-                bias = biasFP(_lock1Amount, maxTime);
+                bias = biasFPCapped(_lock1Amount, maxTime);
             } else {
-                bias = biasFP(_lock1Amount, _splitTime - fromLockWeekTs);
+                bias = biasFPCapped(_lock1Amount, splitWeekTs - fromLockWeekTs);
                 slope = slopeFP(_lock1Amount);
             }
 
@@ -187,7 +188,7 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
                 expectedIndex(_fromLockTime, _splitTime, _splitTime),
                 bias,
                 slope,
-                fromLockWeekTs
+                splitWeekTs
             );
         }
 

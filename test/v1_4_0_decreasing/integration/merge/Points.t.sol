@@ -201,17 +201,17 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         uint256 toLockWeekTs = weekStartTs(_toLockTime);
         uint256 fromLockEnd = fromLockWeekTs + maxTime;
         uint256 toLockEnd = toLockWeekTs + maxTime;
-        uint256 mergeTs = weekStartTs(_mergeTime);
+        uint256 mergeWeekTs = weekStartTs(_mergeTime);
 
         assertTokenPoint(
             from,
             // If the dates match, it should use
             // a single block/record for gas efficiency,
             // otherwise 2.
-            _mergeTime == _fromLockTime ? 1 : 2,
+            mergeWeekTs == fromLockWeekTs ? 1 : 2,
             0,
             0,
-            mergeTs
+            mergeWeekTs
         );
 
 
@@ -222,8 +222,8 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
                 bias = biasFPCapped(_lock1Amount, maxTime) + biasFPCapped(_lock2Amount, maxTime);
             } else {
                 bias =
-                    biasFPCapped(_lock1Amount, mergeTs - fromLockWeekTs) +
-                    biasFPCapped(_lock2Amount, mergeTs - toLockWeekTs);
+                    biasFPCapped(_lock1Amount, mergeWeekTs - fromLockWeekTs) +
+                    biasFPCapped(_lock2Amount, mergeWeekTs - toLockWeekTs);
             }
 
             int256 slope = 0;
@@ -236,17 +236,17 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
                 // If the dates match, it should use
                 // a single block/record for gas efficiency,
                 // otherwise 2.
-                _mergeTime == _toLockTime ? 1 : 2,
+                mergeWeekTs == toLockWeekTs ? 1 : 2,
                 bias,
                 slope,
-                mergeTs
+                mergeWeekTs
             );
 
             assertGlobalPoint(
                 expectedIndex(_fromLockTime, _toLockTime, _mergeTime),
                 bias,
                 slope,
-                mergeTs
+                mergeWeekTs
             );
         }
 
