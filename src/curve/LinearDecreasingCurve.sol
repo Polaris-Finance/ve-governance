@@ -280,9 +280,7 @@ contract LinearDecreasingCurve is
         }
 
         {
-            // TODO!!
-            (uint256 normalizedTs, uint256 checkpointInterval) = IClock(clock).normalizeTimestamp(block.timestamp);
-            require(normalizedTs == _newLocked.effectiveStart, "effective start???"); // TODO
+            uint256 checkpointInterval = IClock(clock).checkpointInterval();
             uint256 lastPointCheckpoint = lastPoint.writtenTs;
             uint256 t_i = lastPointCheckpoint;
 
@@ -297,8 +295,8 @@ contract LinearDecreasingCurve is
                 t_i += checkpointInterval;
                 int256 dSlope;
 
-                if (t_i > normalizedTs) {
-                    t_i = normalizedTs;
+                if (t_i > _newLocked.effectiveStart) {
+                    t_i = _newLocked.effectiveStart;
                 } else {
                     dSlope = slopeChanges[t_i];
                 }
@@ -313,7 +311,7 @@ contract LinearDecreasingCurve is
                 lastPoint.writtenTs = uint48(t_i);
                 _globalPointLatestIndex += 1;
 
-                if (t_i == normalizedTs) {
+                if (t_i == _newLocked.effectiveStart) {
                     break;
                 } else {
                     _globalPointHistory[_globalPointLatestIndex] = lastPoint;
