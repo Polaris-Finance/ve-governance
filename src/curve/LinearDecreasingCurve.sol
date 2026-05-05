@@ -31,6 +31,8 @@ import {
     DaoAuthorizableUpgradeable as DaoAuthorizable
 } from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizableUpgradeable.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 /// @title Linear Decreasing Escrow Curve
 contract LinearDecreasingCurve is
     IEscrowCurve,
@@ -268,6 +270,11 @@ contract LinearDecreasingCurve is
              _newLocked.effectiveStart - _newLocked.lockedBalance.start,
             _newLocked.lockedBalance.amount
         );
+        console2.log(newLockBias, "newLockBias");
+        console2.log(_newLocked.lockedBalance.start, "_newLocked.lockedBalance.start");
+        console2.log(_newLocked.effectiveStart, "_newLocked.effectiveStart");
+        console2.log(_newLocked.effectiveStart - _newLocked.lockedBalance.start, "elapsed");
+        console2.log((-newLockSlope).toUint256(), "newLockSlope");
 
         GlobalPoint memory lastPoint = GlobalPoint({
             bias: 0,
@@ -291,18 +298,24 @@ contract LinearDecreasingCurve is
                 revert CheckpointOnDepositIntervalNotAllowed();
             }
 
+            //console2.log("");
+            console2.log("-- loop --");
             for (uint256 i = 0; i < 255; ++i) {
                 t_i += checkpointInterval;
                 int256 dSlope;
+                console2.log(i, "i");
+                console2.log(t_i, "t_i");
 
                 if (t_i > _newLocked.effectiveStart) {
                     t_i = _newLocked.effectiveStart;
                 } else {
                     dSlope = slopeChanges[t_i];
                 }
+                console2.log(t_i, "t_i");
 
                 //int256 newBias = lastPoint.bias.toInt256() + lastPoint.slope * (t_i - lastPointCheckpoint).toInt256();
                 lastPoint.bias = _getBias(t_i - lastPointCheckpoint, lastPoint.bias.toInt256(), lastPoint.slope);
+                console2.log(lastPoint.bias, "lastPoint.bias");
 
                 lastPoint.slope -= dSlope;
                 if (lastPoint.slope > 0) lastPoint.slope = 0;
@@ -310,11 +323,17 @@ contract LinearDecreasingCurve is
                 lastPointCheckpoint = t_i;
                 lastPoint.writtenTs = uint48(t_i);
                 _globalPointLatestIndex += 1;
+                console2.log(_globalPointLatestIndex, "_globalPointLatestIndex");
 
                 if (t_i == _newLocked.effectiveStart) {
+                    console2.log("  -- break");
                     break;
                 } else {
                     _globalPointHistory[_globalPointLatestIndex] = lastPoint;
+                    console2.log("  -- loop storing");
+                    console2.log(lastPoint.bias, "lastPoint.bias");
+                    console2.log((-lastPoint.slope).toUint256(), "lastPoint.slope");
+                    console2.log(lastPoint.writtenTs, "lastPoint.writtenTs");
                 }
             }
         }
@@ -361,12 +380,16 @@ contract LinearDecreasingCurve is
 
         {
 
+            console2.log(lastPoint.bias, "lastPoint.bias");
             int256 lastPointNewBias = lastPoint.bias.toInt256() + newLockBias.toInt256() - oldLockBias.toInt256();
             if (lastPointNewBias < 0) {
                 lastPoint.bias = 0;
             } else {
                 lastPoint.bias = lastPointNewBias.toUint256();
             }
+            console2.log(newLockBias, "newLockBias");
+            console2.log(oldLockBias, "oldLockBias");
+            console2.log(lastPoint.bias, "lastPoint.bias");
             lastPoint.slope += (newLockSlope - oldLockSlope);
             if (lastPoint.slope > 0) lastPoint.slope = 0;
         }
@@ -404,11 +427,19 @@ contract LinearDecreasingCurve is
         // to reduce unnecessary global points in the history for
         // gas costs and binary search efficiency.
         if (_index != 1 && _globalPointHistory[_index - 1].writtenTs == _p.writtenTs) {
+            console2.log("-- overwrite global");
+            console2.log("at index " , _index - 1);
             _globalPointHistory[_index - 1] = _p;
         } else {
+            console2.log("-- create new global");
+            console2.log("at index " , _index);
             globalPointLatestIndex = _index;
             _globalPointHistory[_index] = _p;
         }
+        console2.log(_p.bias, "_p.bias");
+        console2.log((-_p.slope).toUint256(), "_p.slope");
+        console2.log(_p.writtenTs, "_p.writtenTs");
+        console2.log("");
     }
 
     /// @dev The private helper function to either store latest token point on a new index or overwrite it.
