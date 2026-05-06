@@ -40,7 +40,7 @@ contract TestSplit_ApproveDelegateAndTransfer is TestSplit_ApproveDelegateBase {
     /// @notice After split, Alice transfers only the split-off token to Dave.
     ///         Bob retains voting power from the remaining token.
     function test_Split_PartialTransfer_BobRetainsRemainingPower() public {
-        uint256 splitAmount = 5e18;
+        uint256 splitAmount = getFlooredAmount(5e18);
         _approveCharlieAndSplit(1, splitAmount);
 
         vm.prank(alice);

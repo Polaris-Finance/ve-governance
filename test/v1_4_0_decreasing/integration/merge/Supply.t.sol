@@ -95,9 +95,10 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         int256 currentTotalBiasFP = Lock_1_min + Lock_2_min;
 
         // 1, 2
-        assertTotalSupply(currentTs - 1, currentTotalBiasFP);
-        assertTotalSupply(currentTs, currentTotalBiasFP);
-        assertTotalSupply(currentTs + 1, currentTotalBiasFP);
+        assertTotalSupply(end - 1, currentTotalBiasFP);
+        assertTotalSupply(end, 0);
+        assertTotalSupply(currentTs, 0);
+        assertTotalSupply(currentTs + 1, 0);
     }
 
     function test_Merge_WhenMature_DifferentStartDates() public {
@@ -141,6 +142,8 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         );
 
         vm.assume(_toLockTime >= _fromLockTime && _mergeTime >= _toLockTime);
+        _lock1Amount = uint184(getFlooredAmount(uint256(_lock1Amount)));
+        _lock2Amount = uint184(getFlooredAmount(uint256(_lock2Amount)));
         vm.assume(_lock1Amount > 0 && _lock2Amount > 0);
 
         // If start dates of locks don't match,

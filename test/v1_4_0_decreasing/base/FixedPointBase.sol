@@ -11,30 +11,42 @@ contract FixedPointBase {
 
     uint256 maxTime;
     uint256 checkpointInterval;
-    int256 linearCoefficient;
+    int256 linearDenominator;
 
-    function setMultiplier(int256 _linearCoefficient) public {
-        linearCoefficient = _linearCoefficient;
+    function setDenominator(int256 _linearDenominator) public {
+        linearDenominator = _linearDenominator;
     }
 
     function initialize(
         uint256 _maxTime,
         uint256 _checkpointInterval,
-        int256 _linearCoefficient
+        int256 _linearDenominator
     ) public {
         maxTime = _maxTime;
         checkpointInterval = _checkpointInterval;
-        setMultiplier(_linearCoefficient);
+        setDenominator(_linearDenominator);
+    }
+
+    function getFlooredAmount(uint256 _amount) internal view returns (uint256) {
+        uint256 denominator = (-linearDenominator).toUint256();
+        return _amount / denominator * denominator;
+    }
+
+    function getFlooredAmount208(uint208 _amount) internal view returns (uint208) {
+        uint256 newAmount = getFlooredAmount(uint256(_amount));
+        return uint208(_amount);
     }
 
     function slopeFP(uint256 _amount) internal view returns (int256) {
         if (maxTime == 0) return 0;
 
-        return _amount.toInt256() * linearCoefficient;
+        _amount = getFlooredAmount(_amount);
+        return _amount.toInt256() * 1e18 / linearDenominator;
     }
 
     function biasFP(uint256 _amount, uint256 _duration) internal view returns (int256) {
-        int256 slope = maxTime == 0 ? int256(0) : _amount.toInt256() * linearCoefficient;
+        _amount = getFlooredAmount(_amount);
+        int256 slope = maxTime == 0 ? int256(0) : _amount.toInt256() * 1e18 / linearDenominator;
         console.log("");
         console.log("-- biasFP");
         console.log((-slope).toUint256(), "slope");
@@ -85,7 +97,7 @@ contract FixedPointBase {
     function getQuadraticCoefficientsFromLinear(int256[2] memory _coefficients) internal view returns (int256[3] memory) {
         int256[3] memory coefficientsQuad;
         coefficientsQuad[0] = _coefficients[0];
-        coefficientsQuad[1] = _coefficients[1];
+        coefficientsQuad[1] = 1e18 / _coefficients[1]; // TODO
         coefficientsQuad[2] = 0;
         return coefficientsQuad;
     }

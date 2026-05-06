@@ -119,6 +119,13 @@ contract TestCreateLock_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
             Lock_1_end - 1,
             Lock_1_min + biasFP(Lock_2_Amount, Lock_1_end - 1 - weekStartTs)
         );
+        console.log(Lock_1_Amount, "Lock_1_Amount");
+        console.log(Lock_1_Amount/208, "Lock_1_Amount");
+        console.log(Lock_1_Amount/208*208, "Lock_1_Amount");
+        console.log(Lock_2_Amount, "Lock_2_Amount");
+        console.log(Lock_2_Amount/208, "Lock_2_Amount");
+        console.log(Lock_2_Amount/208*208, "Lock_2_Amount");
+        console.log(uint256(-biasFP(Lock_1_Amount, Lock_1_end - Lock_1_start)), "lock 1 end");
         assertTotalSupply(
             Lock_1_end,
             biasFPCapped(Lock_2_Amount, Lock_1_end - weekStartTs)
@@ -161,14 +168,14 @@ contract TestCreateLock_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalSt
 
         // 1, 2
         assertTotalSupply(currentTs, currentTotalBiasFP);
-        assertTotalSupply(currentTs - 1, Lock_1_min);
+        assertTotalSupply(currentTs - 1, biasFP(Lock_2_Amount, currentTs - 1 - weekStartTs));
 
         // 3
         assertTotalSupply(Lock_1_end - 1, Lock_1_min);
-        assertTotalSupply(Lock_1_end + 10, Lock_1_min);
+        assertTotalSupply(Lock_1_end + 10, biasFP(Lock_2_Amount, Lock_1_end + 10 - weekStartTs));
 
         // 4
-        assertTotalSupply(Lock_2_end, Lock_2_min);
+        assertTotalSupply(Lock_2_end - 1, Lock_2_min);
         assertTotalSupply(Lock_2_end, 0);
         assertTotalSupply(Lock_2_end + 10, 0);
     }

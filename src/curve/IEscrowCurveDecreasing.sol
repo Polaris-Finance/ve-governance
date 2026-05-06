@@ -88,6 +88,8 @@ interface IEscrowCurveCore is IEscrowCurveErrorsAndEvents {
 }
 
 interface IEscrowCurveMath {
+    function getFlooredAmount(uint256 _amount) external view returns (uint256);
+
     /// @notice Preview the curve coefficients for curves up to quadratic.
     /// @param amount The amount of tokens to calculate the coefficients for - given a fixed algebraic representation
     /// @return coefficients in the form [constant, linear, quadratic]

@@ -79,8 +79,8 @@ contract EscrowBase is
     uint256 internal DAY = 86400;
     uint256 MAX_TIME;
 
-    uint208 internal Lock_1_Amount = 50e18;
-    uint208 internal Lock_2_Amount = 30e18;
+    uint208 internal Lock_1_Amount = uint208(50e18) / 125798400 * 125798400;
+    uint208 internal Lock_2_Amount = uint208(30e18) / 125798400 * 125798400;
 
     uint256 internal Lock_1_ts;
     uint256 internal Lock_1_start;
@@ -169,7 +169,7 @@ contract EscrowBase is
         uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
 
         Lock_1_ts = block.timestamp;
-        Lock_1_start = (block.timestamp / checkpointInterval) / checkpointInterval;
+        Lock_1_start = (block.timestamp / checkpointInterval) * checkpointInterval;
     }
 
     function mintAndApproveEscrow() internal {

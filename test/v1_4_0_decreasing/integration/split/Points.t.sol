@@ -41,7 +41,7 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         // 2. we should have one new tokenIds with `value` and `Lock_1_Amount - value` with old token with their according bias and slope.
         // 3. bias and slope on the latest global point must include the same slope and bias as it was originally before splitting.
         // 4. slope changes must still include the original token's slope at the same original end.
-        uint256 value = 20e18;
+        uint256 value = getFlooredAmount(20e18);
         uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 weekStartTs1 = weekStartTs(block.timestamp);
         uint256 endTs = weekStartTs1 + maxTime;
@@ -126,6 +126,8 @@ contract TestSplit_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
     ) public {
         (_fromLockTime, _splitTime) = boundLockCreationFuzzTimes(_fromLockTime, _splitTime);
 
+        _lock1Amount = uint184(getFlooredAmount(uint256(_lock1Amount)));
+        _splitValue = uint184(getFlooredAmount(uint256(_splitValue)));
         // Split requirements to work with.
         vm.assume(_lock1Amount > 0 && _splitValue > 0);
         vm.assume(_splitValue < _lock1Amount);

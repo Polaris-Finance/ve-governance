@@ -39,7 +39,7 @@ contract TestSplit_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
     function test_Split_TokenNotMature() public {
         // 1. total supply at current timestamp must be both of the token's bias summed up till that point.
         // 2. check that after the original token's end, the total supply doesn't increase.
-        uint256 value = 20e18;
+        uint256 value = getFlooredAmount(20e18);
         uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 weekStartTs = weekStartTs(block.timestamp);
         uint256 endTs = getEndTimestamp(weekStartTs, block.timestamp);

@@ -16,7 +16,8 @@ library CurveConstantLib {
 
     /// @dev straight line so the curve is increasing only in the linear term
     /// - 1 / (104 * SECONDS_IN_2_WEEKS)
-    int256 internal constant SHARED_LINEAR_COEFFICIENT = -1e18 / (int256(MAX_EPOCHS) * 2 weeks) - 1;
+    int256 internal constant SHARED_LINEAR_DENOMINATOR = -int256(MAX_EPOCHS) * 2 weeks;
+    int256 internal constant SHARED_LINEAR_COEFFICIENT = 1e18 / SHARED_LINEAR_DENOMINATOR;
 
     /// @dev this curve is linear
     int256 internal constant SHARED_QUADRATIC_COEFFICIENT = 0;
@@ -28,7 +29,7 @@ library CurveConstantLib {
     function getCoefficients() internal pure returns (int256[2] memory, uint256) {
         int256[2] memory coefficients;
         coefficients[0] = SHARED_CONSTANT_COEFFICIENT;
-        coefficients[1] = SHARED_LINEAR_COEFFICIENT;
+        coefficients[1] = SHARED_LINEAR_DENOMINATOR;
         uint256 maxEpoch = MAX_EPOCHS;
 
         return (coefficients, maxEpoch);

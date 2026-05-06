@@ -69,7 +69,7 @@ contract LinearDecreasingCurve is
     //////////////////////////////////////////////////////////////*/
 
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-    int256 private immutable SHARED_LINEAR_COEFFICIENT;
+    int256 private immutable SHARED_LINEAR_DENOMINATOR;
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
     int256 private immutable SHARED_CONSTANT_COEFFICIENT;
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
@@ -95,7 +95,7 @@ contract LinearDecreasingCurve is
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(int256[2] memory _coefficients, uint256 _maxEpochs) {
         SHARED_CONSTANT_COEFFICIENT = _coefficients[0];
-        SHARED_LINEAR_COEFFICIENT = _coefficients[1];
+        SHARED_LINEAR_DENOMINATOR = _coefficients[1];
 
         MAX_EPOCHS = _maxEpochs;
 
@@ -119,7 +119,7 @@ contract LinearDecreasingCurve is
 
     /// @return The coefficient for the curve's linear term, for the given amount
     function _getLinearCoeff(uint256 amount) internal view virtual returns (int256) {
-        return amount.toInt256() * SHARED_LINEAR_COEFFICIENT;
+        return amount.toInt256() * 1e18 / SHARED_LINEAR_DENOMINATOR;
     }
 
     /// @return The constant coefficient of the decreasing curve, for the given amount
@@ -146,13 +146,19 @@ contract LinearDecreasingCurve is
         ];
     }
 
+    // To make sure that locks reach zero exactly at the end of the epoch
+    function getFlooredAmount(uint256 _amount) public view returns (uint256) {
+        uint256 denominator = (-SHARED_LINEAR_DENOMINATOR).toUint256();
+        return _amount / denominator * denominator;
+    }
+
     /*//////////////////////////////////////////////////////////////
                               CURVE BIAS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the bias for the given time elapsed and amount, up to the maximum time
     function getBias(uint256 timeElapsed, uint256 amount) external view returns (uint256) {
-        int256[2] memory coefficients = _getCoefficients(amount);
+        int256[2] memory coefficients = _getCoefficients(getFlooredAmount(amount));
         return _getBias(timeElapsed, coefficients[0], coefficients[1]);
     }
 
@@ -268,7 +274,7 @@ contract LinearDecreasingCurve is
         // Get the slope and bias for `_newLocked`...
         (uint256 newLockBias, int256 newLockSlope) = _getBiasAndSlope(
              _newLocked.effectiveStart - _newLocked.lockedBalance.start,
-            _newLocked.lockedBalance.amount
+             getFlooredAmount(_newLocked.lockedBalance.amount)
         );
 
         GlobalPoint memory lastPoint = GlobalPoint({
@@ -350,7 +356,7 @@ contract LinearDecreasingCurve is
         if (_fromLocked.lockedBalance.amount > 0) {
             (oldLockBias, oldLockSlope) = _getBiasAndSlope(
                 _newLocked.effectiveStart - _fromLocked.lockedBalance.start,
-                _fromLocked.lockedBalance.amount
+                getFlooredAmount(_fromLocked.lockedBalance.amount)
             );
 
             // In case fromLocked already ended, its slope would already
@@ -542,6 +548,7 @@ contract LinearDecreasingCurve is
             slope -= dSlope;
             ts = t_i;
         }
+        /*
         console2.log(bias.toUint256(), "bias");
         uint256 totalTime = (_timestamp - _point.writtenTs) / checkpointInterval * 604800;
         uint256 decline = (-_point.slope).toUint256() * totalTime;
@@ -552,6 +559,7 @@ contract LinearDecreasingCurve is
         console2.log(totalTime, "total time");
         console2.log(decline, "decline");
         console2.log(finalBias, "finalBias");
+        */
 
         if (bias < 0) bias = 0;
 

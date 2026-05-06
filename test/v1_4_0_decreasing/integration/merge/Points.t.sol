@@ -176,6 +176,8 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         );
 
         vm.assume(_toLockTime >= _fromLockTime && _mergeTime >= _toLockTime);
+        _lock1Amount = uint184(getFlooredAmount(uint256(_lock1Amount)));
+        _lock2Amount = uint184(getFlooredAmount(uint256(_lock2Amount)));
         vm.assume(_lock1Amount > 0 && _lock2Amount > 0);
 
         // If start dates of locks don't match,

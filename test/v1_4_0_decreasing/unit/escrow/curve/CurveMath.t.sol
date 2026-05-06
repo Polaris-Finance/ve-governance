@@ -53,8 +53,8 @@ contract TestDecreasingCurve is CurveBase {
     function testWritesCheckpoint() public {
         uint tokenIdFirst = 1;
         uint tokenIdSecond = 2;
-        uint208 depositFirst = 420.69e18;
-        uint208 depositSecond = 1_000_000_000e18;
+        uint208 depositFirst = getFlooredAmount208(420.69e18);
+        uint208 depositSecond = getFlooredAmount208(1_000_000_000e18);
 
         // add + 1seconds so it doesn't get to
         // be exact checkpointInterval.

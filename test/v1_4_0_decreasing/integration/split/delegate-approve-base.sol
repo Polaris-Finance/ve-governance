@@ -33,6 +33,7 @@ abstract contract TestSplit_ApproveDelegateBase is
 
     function setUp() public virtual override {
         super.setUp();
+        aliceAmount = getFlooredAmount(aliceAmount);
         super.mintAndApproveEscrow();
 
         vm.warp(1);
