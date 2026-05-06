@@ -165,6 +165,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         if (!voter.votingActive()) {
             vm.warp(voter.epochVoteStart() + 1);
         }
+        vm.assume(ivotesAdapter.getVotes(sender) > 0);
 
         vm.prank(sender);
         voter.vote(votes);
@@ -190,6 +191,8 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         address msgSender = _getAddress(_senderSeed);
         address newDelegatee = _getAddress(_delegateeSeed);
         address currentDelegatee = ivotesAdapter.delegates(msgSender);
+
+        _assumeNonZeroVotingPower(msgSender);
 
         _transitionIfTooOld(newDelegatee);
         _transitionIfTooOld(currentDelegatee);
@@ -228,6 +231,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         );
 
         if (tokens.length == 0) return;
+        _assumeNonZeroVotingPower(tokens);
 
         _transitionIfTooOld(delegatee);
         vm.prank(msgSender);
@@ -277,6 +281,8 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         uint256 _senderSeed
     ) external adjustTimestamp(_jumpSeed) returns (uint256 tokenId) {
         _value = _bound(_value, escrow.minDeposit(), type(uint96).max);
+        _value = getFlooredAmount(_value);
+        vm.assume(_value > 0);
         address msgSender = _getAddress(_senderSeed);
         address delegatee = ivotesAdapter.delegates(msgSender);
 
@@ -379,6 +385,8 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         if (currentAmount < 2 * minDeposit) return;
 
         _value = _bound(_value, minDeposit, currentAmount - minDeposit);
+        _value = getFlooredAmount(_value);
+        vm.assume(_value > 0);
         bool isFromTokenDelegated = ivotesAdapter.tokenIsDelegated(fromId);
 
         vm.prank(msgSender);
@@ -503,6 +511,10 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     }
 
     // ======================== Helper Functions ===================
+
+    function getFlooredAmount(uint256 _amount) internal view returns (uint256) {
+        return curve.getFlooredAmount(_amount);
+    }
 
     function _updateDelegationState(
         uint256 _token,
@@ -670,6 +682,17 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
 
     function _getAddress(uint256 _seedAddr) private view returns (address) {
         return actors[_bound(_seedAddr, 0, actors.length - 1)];
+    }
+
+    function _assumeNonZeroVotingPower(address _sender) internal {
+        uint256[] memory tokenIds = VotingEscrow(escrow).ownedTokens(_sender);
+        _assumeNonZeroVotingPower(tokenIds);
+    }
+
+    function _assumeNonZeroVotingPower(uint256[] memory _tokenIds) internal {
+        for (uint256 i = 0; i < _tokenIds.length; i++) {
+            vm.assume(escrow.votingPower(_tokenIds[i]) > 0);
+        }
     }
 
     // The checkpoint functions in the Escrow and EscrowIVotesAdapter are designed such that
