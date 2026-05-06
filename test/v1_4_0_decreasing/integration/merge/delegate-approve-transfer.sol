@@ -39,7 +39,7 @@ contract TestMerge_ApproveDelegateAndTransfer is TestMerge_ApproveDelegateBase {
     ///         Alice transfers only the merged token to Dave.
     ///         Bob retains voting power from token 3.
     function test_Merge_PartialTransfer_BobRetainsRemainingPower() public {
-        uint256 amount3 = 10e18;
+        uint256 amount3 = getFlooredAmount(10e18);
         token.transfer(alice, amount3);
         vm.startPrank(alice);
         token.approve(address(escrow), amount3);
@@ -63,7 +63,7 @@ contract TestMerge_ApproveDelegateAndTransfer is TestMerge_ApproveDelegateBase {
     /// @notice Same as above but Bob votes on a gauge first.
     ///         After merge + partial transfer, Bob's gauge vote auto-decreases.
     function test_Merge_PartialTransfer_BobGaugeVoteDecreases() public {
-        uint256 amount3 = 10e18;
+        uint256 amount3 = getFlooredAmount(10e18);
         token.transfer(alice, amount3);
         vm.startPrank(alice);
         token.approve(address(escrow), amount3);

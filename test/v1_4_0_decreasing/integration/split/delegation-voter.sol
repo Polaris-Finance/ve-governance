@@ -34,7 +34,7 @@ contract TestSplit_DelegationAndVoter is
         vm.warp(1);
 
         address alice = address(0x123);
-        uint256 aliceAmount = 30e18;
+        uint256 aliceAmount = getFlooredAmount(30e18);
         token.transfer(alice, aliceAmount);
 
         vm.warp(2 weeks + 1 hours + 1);
@@ -65,7 +65,7 @@ contract TestSplit_DelegationAndVoter is
         assertEq(ivotesAdapter.getVotes(alice), bias(aliceAmount, block.timestamp - checkpointTs));
 
         vm.prank(alice);
-        escrow.split(1, 5e18);
+        escrow.split(1, getFlooredAmount(5e18));
 
         // // Even though tokenId was destroyed, split produced
         // // 2 new tokenIds of which's power sum must be the same.

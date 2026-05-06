@@ -37,6 +37,8 @@ abstract contract TestMerge_ApproveDelegateBase is
 
     function setUp() public virtual override {
         super.setUp();
+        amount1 = getFlooredAmount(amount1);
+        amount2 = getFlooredAmount(amount2);
         super.mintAndApproveEscrow();
 
         totalAmount = amount1 + amount2;

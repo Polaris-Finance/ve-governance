@@ -20,7 +20,7 @@ import {VotingEscrowDecreasing as VotingEscrow} from "@escrow/VotingEscrowDecrea
 import {LinearDecreasingCurve as Curve} from "@curve/LinearDecreasingCurve.sol";
 import {ClockV1_2_0 as Clock} from "@clock/Clock_v1_2_0.sol";
 import {LockV1_2_0 as Lock} from "@lock/Lock_v1_2_0.sol";
-import {EscrowIVotesAdapter} from "@delegation/EscrowIVotesAdapter.sol";
+import {EscrowIVotesAdapterDecreasing as EscrowIVotesAdapter} from "@delegation/EscrowIVotesAdapterDecreasing.sol";
 
 /// @param isPaused Whether the voter contract is deployed in a paused state
 /// @param veTokenName The name of the voting escrow token

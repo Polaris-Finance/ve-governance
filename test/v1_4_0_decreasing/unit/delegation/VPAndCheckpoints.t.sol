@@ -17,7 +17,7 @@ contract TestVPAndCheckpoints is Base {
         dg.setDelegateAddress(alice);
 
         uint256 start = weekStartTs(block.timestamp);
-        uint256 amount = 10;
+        uint256 amount = getFlooredAmount(10e18);
 
         _mockLocked(singleId[0], amount, start);
         dg.delegate(singleId);
@@ -35,8 +35,8 @@ contract TestVPAndCheckpoints is Base {
     function test_DelegateMultipleTokens() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount1 = 10;
-        uint256 amount2 = 25;
+        uint256 amount1 = getFlooredAmount(10e18);
+        uint256 amount2 = getFlooredAmount(25e18);
         uint256 start = weekStartTs(block.timestamp);
 
         _mockLocked(multiIds[0], amount1, start);
@@ -58,7 +58,7 @@ contract TestVPAndCheckpoints is Base {
         dg.setDelegateAddress(alice);
 
         // Delegate first token
-        uint256 amount1 = 10;
+        uint256 amount1 = getFlooredAmount(10e18);
         uint256 start1 = weekStartTs(block.timestamp);
         uint256 start1Ts = block.timestamp;
         _mockLocked(singleId[0], amount1, start1);
@@ -70,7 +70,7 @@ contract TestVPAndCheckpoints is Base {
         vm.warp(block.timestamp + 3 weeks);
 
         // Delegate second token
-        uint256 amount2 = 25;
+        uint256 amount2 = getFlooredAmount(25e18);
         uint256 start2 = weekStartTs(block.timestamp);
         singleId[0] = 2;
         _mockLocked(singleId[0], uint208(amount2), start2);
@@ -100,7 +100,7 @@ contract TestVPAndCheckpoints is Base {
     function test_UndelegateShouldDecreaseSlopeAndBias() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount1 = 10;
+        uint256 amount1 = getFlooredAmount(10e18);
         uint256 start1 = weekStartTs(block.timestamp);
         _mockLocked(singleId[0], amount1, start1);
 
@@ -119,8 +119,8 @@ contract TestVPAndCheckpoints is Base {
     function test_VotingPowersSingleToken() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount = 10;
-        _mockLocked(singleId[0], 10, weekStartTs(block.timestamp));
+        uint256 amount = getFlooredAmount(10e18);
+        _mockLocked(singleId[0], getFlooredAmount(10e18), weekStartTs(block.timestamp));
         dg.delegate(singleId);
 
         uint256 expectedVP = bias(amount, block.timestamp - weekStartTs(block.timestamp));
@@ -139,8 +139,8 @@ contract TestVPAndCheckpoints is Base {
     function test_VotingPowersMultipleTokens() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount1 = 10e18;
-        uint256 amount2 = 25e18;
+        uint256 amount1 = getFlooredAmount(10e18);
+        uint256 amount2 = getFlooredAmount(25e18);
         uint256 start = weekStartTs(block.timestamp);
         _mockLocked(multiIds[0], amount1, start);
         _mockLocked(multiIds[1], amount2, start);
@@ -181,7 +181,7 @@ contract TestVPAndCheckpoints is Base {
     function test_transitionLessThanCurrentTimestamp() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount = 10;
+        uint256 amount = getFlooredAmount(10e18);
         uint256 start = weekStartTs(block.timestamp);
 
         _mockLocked(singleId[0], amount, start);
@@ -209,7 +209,7 @@ contract TestVPAndCheckpoints is Base {
     function test_transitionBiggerThanCurrentTimestamp() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount = 10;
+        uint256 amount = getFlooredAmount(10e18);
         uint256 start = weekStartTs(block.timestamp);
 
         _mockLocked(singleId[0], amount, start);
@@ -240,9 +240,9 @@ contract TestVPAndCheckpoints is Base {
     function test_SameTimestampCheckpointOverwrite() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount1 = 10e18;
-        uint256 amount2 = 20e18;
-        uint256 amount3 = 30e18;
+        uint256 amount1 = getFlooredAmount(10e18);
+        uint256 amount2 = getFlooredAmount(20e18);
+        uint256 amount3 = getFlooredAmount(30e18);
         uint256 start = weekStartTs(block.timestamp);
         uint256 delegateTs = block.timestamp;
 
@@ -289,9 +289,9 @@ contract TestVPAndCheckpoints is Base {
     function test_BinarySearchReturnsCorrectStateAfterOverwrite() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount1 = 10;
-        uint256 amount2 = 20;
-        uint256 amount3 = 30;
+        uint256 amount1 = getFlooredAmount(10e18);
+        uint256 amount2 = getFlooredAmount(20e18);
+        uint256 amount3 = getFlooredAmount(30e18);
         uint256 start = weekStartTs(block.timestamp);
         uint256 delegateTs = block.timestamp;
 
@@ -338,8 +338,8 @@ contract TestVPAndCheckpoints is Base {
     function test_DifferentTimestampsCreateSeparateCheckpoints() public {
         dg.setDelegateAddress(alice);
 
-        uint256 amount1 = 10;
-        uint256 amount2 = 20;
+        uint256 amount1 = getFlooredAmount(10e18);
+        uint256 amount2 = getFlooredAmount(20e18);
         uint256 start = weekStartTs(block.timestamp);
         uint256 firstDelegateTs = block.timestamp;
 

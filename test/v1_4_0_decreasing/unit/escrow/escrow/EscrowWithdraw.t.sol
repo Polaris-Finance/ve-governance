@@ -58,6 +58,7 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
 
     function testFuzz_withdraw(uint128 _dep, address _who) public {
         vm.assume(_who != address(0) && address(_who).code.length == 0);
+        _dep = uint128(getFlooredAmount(uint256(_dep)));
         vm.assume(_dep > 1e6);
 
         uint256 startTime = block.timestamp;

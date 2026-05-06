@@ -34,8 +34,8 @@ contract TestCreateLock_DelegationAndVoter is
         vm.warp(1);
 
         address alice = address(0x123);
-        uint256 lock1Amount = 15e18;
-        uint256 lock2Amount = 35e18;
+        uint256 lock1Amount = getFlooredAmount(15e18);
+        uint256 lock2Amount = getFlooredAmount(35e18);
 
         token.transfer(alice, lock1Amount + lock2Amount);
 

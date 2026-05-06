@@ -29,7 +29,7 @@ import {Multisig} from "@aragon/multisig/src/Multisig.sol";
 import {MultisigSetup as MultisigPluginSetup} from "@aragon/multisig/src/MultisigSetup.sol";
 import {ProxyLib} from "@aragon/osx-commons-contracts/src/utils/deployment/ProxyLib.sol";
 import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
-import {EscrowIVotesAdapter} from "@delegation/EscrowIVotesAdapter.sol";
+import {EscrowIVotesAdapterDecreasing as EscrowIVotesAdapter} from "@delegation/EscrowIVotesAdapterDecreasing.sol";
 
 /// @notice The struct containing all the parameters to deploy the DAO
 /// @param daoExecutor Optional address with execute permission on the DAO in addition to the multisig

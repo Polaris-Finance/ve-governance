@@ -37,7 +37,7 @@ contract MockLockNFT {
 
 contract EscrowIVotesAdapterA is EscrowIVotesAdapter {
     constructor(
-        int256[3] memory coefficients,
+        int256[2] memory coefficients,
         uint256 maxEpoch
     ) EscrowIVotesAdapter(coefficients, maxEpoch) {}
 
@@ -155,7 +155,7 @@ contract Base is
         address _escrow
     ) public returns (EscrowIVotesAdapterA) {
         (int256[2] memory coefficients, uint256 maxEpochs) = CurveConstantLib.getCoefficients();
-        EscrowIVotesAdapterA impl = new EscrowIVotesAdapterA(getQuadraticCoefficientsFromLinear(coefficients), maxEpochs);
+        EscrowIVotesAdapterA impl = new EscrowIVotesAdapterA(coefficients, maxEpochs);
 
         bool startPaused = false;
 

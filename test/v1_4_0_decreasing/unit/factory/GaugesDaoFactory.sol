@@ -54,7 +54,7 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
+            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
         );
 
         MockPluginRepoRegistry pRepoRegistry = new MockPluginRepoRegistry();
@@ -208,7 +208,7 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
+            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
         );
 
         MockPluginRepoRegistry pRepoRegistry = new MockPluginRepoRegistry();
@@ -377,7 +377,7 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
+            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](2);
@@ -713,7 +713,7 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
+            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](3);
@@ -1128,7 +1128,7 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
+            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](3);

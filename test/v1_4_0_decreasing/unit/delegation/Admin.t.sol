@@ -16,7 +16,7 @@ contract TestDelegateAdmin is Base {
 
     function testUUPSUpgrade() public {
         (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
-        address newImpl = address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch));
+        address newImpl = address(new EscrowIVotesAdapter(coefficients, maxEpoch));
         dg.upgradeTo(newImpl);
         assertEq(dg.implementation(), newImpl);
 

@@ -22,21 +22,23 @@ contract TestMoveDelegateVotes is Base {
 
     function test_OnlyUpdatesFromDelegateeWhenToIsNotSet() public {
         address tokenOwner = address(567);
-        uint256 start = weekStartTs((block.timestamp));
+        uint256 start = weekStartTs(block.timestamp);
 
+        uint256 amount1 = getFlooredAmount(10e18);
+        uint256 amount2 = getFlooredAmount(15e18);
         {
             // make Alice delegate with tokenId = 1 and 2
             vm.startPrank(tokenOwner);
             uint256[] memory ids = getIds(1, 2);
             _mockOwnedTokens(tokenOwner, ids);
-            _mockLocked(ids[0], 10e18, start);
-            _mockLocked(ids[1], 15e18, start);
+            _mockLocked(ids[0], amount1, start);
+            _mockLocked(ids[1], amount2, start);
             dg.delegate(alice);
             vm.stopPrank();
         }
 
-        uint256 token1Bias = bias(10e18, block.timestamp - start);
-        uint256 token2Bias = bias(15e18, block.timestamp - start);
+        uint256 token1Bias = bias(amount1, block.timestamp - start);
+        uint256 token2Bias = bias(amount2, block.timestamp - start);
         uint256 total = token1Bias + token2Bias;
 
         assertEq(dg.getVotes(alice), total);
@@ -64,7 +66,8 @@ contract TestMoveDelegateVotes is Base {
         dg.setDelegateAddress(bob);
         vm.stopPrank();
 
-        _mockLocked(1, 10, weekStartTs((block.timestamp)));
+        uint256 amount = getFlooredAmount(10e18);
+        _mockLocked(1, amount, weekStartTs((block.timestamp)));
 
         assertEq(dg.getVotes(bob), 0);
 
@@ -78,24 +81,26 @@ contract TestMoveDelegateVotes is Base {
         }
         vm.stopPrank();
 
-        assertEq(dg.getVotes(bob), bias(10, block.timestamp - weekStartTs((block.timestamp))));
+        assertEq(dg.getVotes(bob), bias(amount, block.timestamp - weekStartTs((block.timestamp))));
     }
 
     function test_UpdateBothDelegates() public {
         address tokenOwner = address(567);
         address tokenReceiver = address(678);
 
+        uint256 amount1 = getFlooredAmount(10e18);
+        uint256 amount2 = getFlooredAmount(15e18);
         uint256 start = weekStartTs((block.timestamp));
-        _mockLocked(1, 10e18, start);
-        _mockLocked(2, 15e18, start);
+        _mockLocked(1, amount1, start);
+        _mockLocked(2, amount2, start);
 
         {
             // make Alice delegatee with tokenId = 1 and 2
             vm.startPrank(tokenOwner);
             uint256[] memory ids = getIds(1, 2);
             _mockOwnedTokens(tokenOwner, ids);
-            _mockLocked(ids[0], 10e18, start);
-            _mockLocked(ids[1], 15e18, start);
+            _mockLocked(ids[0], amount1, start);
+            _mockLocked(ids[1], amount2, start);
             dg.delegate(alice);
             vm.stopPrank();
         }
@@ -108,8 +113,8 @@ contract TestMoveDelegateVotes is Base {
             vm.stopPrank();
         }
 
-        uint256 token1Bias = bias(10e18, block.timestamp - start);
-        uint256 token2Bias = bias(15e18, block.timestamp - start);
+        uint256 token1Bias = bias(amount1, block.timestamp - start);
+        uint256 token2Bias = bias(amount2, block.timestamp - start);
         uint256 total = token1Bias + token2Bias;
 
         assertEq(dg.getVotes(alice), total);

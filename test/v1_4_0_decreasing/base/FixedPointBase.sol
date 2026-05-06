@@ -34,7 +34,7 @@ contract FixedPointBase {
 
     function getFlooredAmount208(uint208 _amount) internal view returns (uint208) {
         uint256 newAmount = getFlooredAmount(uint256(_amount));
-        return uint208(_amount);
+        return uint208(newAmount);
     }
 
     function slopeFP(uint256 _amount) internal view returns (int256) {
@@ -92,13 +92,5 @@ contract FixedPointBase {
         uint256 _writtenTs
     ) internal view returns (uint256) {
         return getEndTimestamp(_startTimeTs, _writtenTs, 0);
-    }
-
-    function getQuadraticCoefficientsFromLinear(int256[2] memory _coefficients) internal view returns (int256[3] memory) {
-        int256[3] memory coefficientsQuad;
-        coefficientsQuad[0] = _coefficients[0];
-        coefficientsQuad[1] = 1e18 / _coefficients[1]; // TODO
-        coefficientsQuad[2] = 0;
-        return coefficientsQuad;
     }
 }

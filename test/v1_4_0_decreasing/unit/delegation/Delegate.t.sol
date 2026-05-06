@@ -61,10 +61,13 @@ contract TestDelegate is Base {
         ownedTokens[1] = 2;
         ownedTokens[2] = 3;
 
+        uint256 amount1 = getFlooredAmount(101e18);
+        uint256 amount2 = getFlooredAmount(102e18);
+        uint256 amount3 = getFlooredAmount(103e18);
         _mockOwnedTokens(sender, ownedTokens);
-        _mockLocked(ownedTokens[0], 101e18, weekStartTs(block.timestamp));
-        _mockLocked(ownedTokens[1], 102e18, weekStartTs(block.timestamp));
-        _mockLocked(ownedTokens[2], 103e18, weekStartTs(block.timestamp));
+        _mockLocked(ownedTokens[0], amount1, weekStartTs(block.timestamp));
+        _mockLocked(ownedTokens[1], amount2, weekStartTs(block.timestamp));
+        _mockLocked(ownedTokens[2], amount3, weekStartTs(block.timestamp));
         _mockVotingPower(ownedTokens[0], 1);
         _mockVotingPower(ownedTokens[1], 1);
         _mockVotingPower(ownedTokens[2], 1);
@@ -90,9 +93,9 @@ contract TestDelegate is Base {
 
         assertEq(dg.getVotes(alice), 0);
 
-        uint256 expectedVPBob = bias(101e18, block.timestamp - weekStartTs(block.timestamp)) +
-            bias(102e18, block.timestamp - weekStartTs(block.timestamp)) +
-            bias(103e18, block.timestamp - weekStartTs(block.timestamp));
+        uint256 expectedVPBob = bias(amount1, block.timestamp - weekStartTs(block.timestamp)) +
+            bias(amount2, block.timestamp - weekStartTs(block.timestamp)) +
+            bias(amount3, block.timestamp - weekStartTs(block.timestamp));
 
         assertEq(dg.getVotes(bob), expectedVPBob);
     }

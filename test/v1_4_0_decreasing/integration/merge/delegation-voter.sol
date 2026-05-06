@@ -35,8 +35,8 @@ contract TestMerge_DelegationAndVoter is
 
         address alice = address(0x123);
 
-        uint256 amount1 = 15e18;
-        uint256 amount2 = 20e18;
+        uint256 amount1 = getFlooredAmount(15e18);
+        uint256 amount2 = getFlooredAmount(20e18);
 
         token.transfer(alice, amount1 + amount2);
 

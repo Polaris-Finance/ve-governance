@@ -145,7 +145,7 @@ contract GaugeVotingBase is
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
+            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
         );
 
         // push to the PSP

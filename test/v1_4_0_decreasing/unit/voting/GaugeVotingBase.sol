@@ -88,6 +88,9 @@ contract GaugeVotingBase is
 
         // unpause the contract
         voter.unpause();
+
+        (int256[2] memory coefficients, ) = CurveConstantLib.getCoefficients();
+        FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), coefficients[1]);
     }
 
     function _deployOSX() internal {
@@ -132,7 +135,7 @@ contract GaugeVotingBase is
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(getQuadraticCoefficientsFromLinear(coefficients), maxEpoch))
+            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
         );
 
         // push to the PSP

@@ -56,7 +56,7 @@ contract TestSplit_ApproveDelegateAndTransfer is TestSplit_ApproveDelegateBase {
     /// @notice After split + partial transfer, Bob's gauge vote decreases automatically
     ///         to reflect only the remaining token's voting power.
     function test_Split_PartialTransfer_BobGaugeVoteDecreases() public {
-        uint256 splitAmount = 5e18;
+        uint256 splitAmount = getFlooredAmount(5e18);
 
         address gauge = address(0x777);
         voter.createGauge(gauge, "metadata");

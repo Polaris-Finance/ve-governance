@@ -34,6 +34,7 @@ contract TestGaugeVote is GaugeVotingBase {
 
     function setUp() public override {
         super.setUp();
+        lockDeposit = getFlooredAmount(lockDeposit);
 
         // reset clock. Start from 1 to avoid creating lock
         // at week boundary(0 would be a week boundary).
@@ -322,7 +323,7 @@ contract TestGaugeVote is GaugeVotingBase {
     }
 
     function testCanVoteForMultiple() public {
-        uint secondDeposit = 500 ether;
+        uint secondDeposit = getFlooredAmount(500 ether);
 
         // create a second gauge
         address gauge2 = address(0x69);
@@ -395,25 +396,26 @@ contract TestGaugeVote is GaugeVotingBase {
         votes.push(GaugeVote(25, gauge));
         votes.push(GaugeVote(75, gauge2));
 
+        uint256 amount = getFlooredAmount(1000 ether);
         // create lock for A
-        token.mint(personA, 1000 ether);
+        token.mint(personA, amount);
         uint tokenIdA;
         vm.startPrank(personA);
         {
             ivotesAdapter.delegate(personA);
-            token.approve(address(escrow), 1000 ether);
-            tokenIdA = escrow.createLock(1000 ether, MAX_TIME);
+            token.approve(address(escrow), amount);
+            tokenIdA = escrow.createLock(amount, MAX_TIME);
         }
         vm.stopPrank();
 
         // create lock for B
-        token.mint(personB, 1000 ether);
+        token.mint(personB, amount);
         uint tokenIdB;
         vm.startPrank(personB);
         {
             ivotesAdapter.delegate(personB);
-            token.approve(address(escrow), 1000 ether);
-            tokenIdB = escrow.createLock(1000 ether, MAX_TIME);
+            token.approve(address(escrow), amount);
+            tokenIdB = escrow.createLock(amount, MAX_TIME);
         }
         vm.stopPrank();
 
