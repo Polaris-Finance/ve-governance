@@ -44,20 +44,20 @@ contract TestSplit_DelegationAndVoter is
 
         // turn on delegation to alice, so when she splits,
         // we can test that her delegation automatically updates.
-        {
-            vm.startPrank(alice);
-            token.approve(address(escrow), aliceAmount);
-            escrow.createLock(aliceAmount, MAX_TIME);
-            ivotesAdapter.delegate(alice);
-
-            IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
-            votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
-            voter.vote(votes);
-
-            vm.stopPrank();
-        }
-
+        vm.startPrank(alice);
+        token.approve(address(escrow), aliceAmount);
         uint256 checkpointTs = weekStartTs(block.timestamp);
+        createLockAndMoveToNextWeek(aliceAmount, MAX_TIME);
+        ivotesAdapter.delegate(alice);
+
+
+        vm.warp(block.timestamp + 1 weeks);
+        IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
+        votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
+        voter.vote(votes);
+
+        vm.stopPrank();
+
 
         assertEq(ivotesAdapter.tokenIsDelegated(1), true);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);

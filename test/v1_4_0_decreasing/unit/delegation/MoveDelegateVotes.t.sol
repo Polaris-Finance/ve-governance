@@ -36,6 +36,7 @@ contract TestMoveDelegateVotes is Base {
             dg.delegate(alice);
             vm.stopPrank();
         }
+        vm.warp(block.timestamp + 1 weeks);
 
         uint256 token1Bias = bias(amount1, block.timestamp - start);
         uint256 token2Bias = bias(amount2, block.timestamp - start);
@@ -53,7 +54,9 @@ contract TestMoveDelegateVotes is Base {
             dg.moveDelegateVotes(tokenOwner, bob, 1, VotingEscrow(address(escrow)).locked(1));
         }
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 weeks);
 
+        token2Bias = bias(amount2, block.timestamp - start);
         assertEq(dg.getVotes(alice), token2Bias);
         assertEq(dg.getVotes(bob), 0);
     }
@@ -80,8 +83,9 @@ contract TestMoveDelegateVotes is Base {
             dg.moveDelegateVotes(sender, tokenReceiver, 1, VotingEscrow(address(escrow)).locked(1));
         }
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 weeks);
 
-        assertEq(dg.getVotes(bob), bias(amount, block.timestamp - weekStartTs((block.timestamp))));
+        assertEq(dg.getVotes(bob), bias(amount, block.timestamp - previousCheckpointTs(block.timestamp)));
     }
 
     function test_UpdateBothDelegates() public {
@@ -112,6 +116,7 @@ contract TestMoveDelegateVotes is Base {
             dg.setDelegateAddress(bob);
             vm.stopPrank();
         }
+        vm.warp(block.timestamp + 1 weeks);
 
         uint256 token1Bias = bias(amount1, block.timestamp - start);
         uint256 token2Bias = bias(amount2, block.timestamp - start);
@@ -136,6 +141,9 @@ contract TestMoveDelegateVotes is Base {
             );
         }
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 weeks);
+        token1Bias = bias(amount1, block.timestamp - start);
+        token2Bias = bias(amount2, block.timestamp - start);
 
         assertEq(dg.getVotes(alice), token2Bias);
         assertEq(dg.getVotes(bob), token1Bias);

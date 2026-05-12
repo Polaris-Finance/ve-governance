@@ -151,7 +151,6 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
     }
 
     function invariant_TotalVotingPowerDoesNotExceedTotalLocked() public view {
-        console.log(h.totalLocked(), "h.totalLocked()");
         assertLe(escrow.totalVotingPower(), bias(h.totalLocked(), 0));
     }
 }

@@ -46,23 +46,20 @@ contract TestCreateLock_DelegationAndVoter is
         voter.createGauge(gauge, "metadata");
 
         // alice creates lock, delegates to herself and votes.
-        {
-            vm.startPrank(alice);
-            ivotesAdapter.delegate(alice);
+        vm.startPrank(alice);
+        ivotesAdapter.delegate(alice);
 
-            token.approve(address(escrow), lock1Amount);
-            escrow.createLock(lock1Amount, MAX_TIME);
-
-            IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
-            votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
-            voter.vote(votes);
-            vm.stopPrank();
-        }
-
+        token.approve(address(escrow), lock1Amount);
         uint256 checkpointTs = weekStartTs(block.timestamp);
+        escrow.createLock(lock1Amount, MAX_TIME);
+        vm.warp(block.timestamp + 2 weeks);
+
+        IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
+        votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
+        voter.vote(votes);
+        vm.stopPrank();
 
         uint256 alice1Bias = bias(lock1Amount, block.timestamp - checkpointTs);
-        uint256 alice2Bias = bias(lock2Amount, block.timestamp - checkpointTs);
         assertEq(ivotesAdapter.getVotes(alice), alice1Bias);
         assertEq(voter.votes(alice, gauge), alice1Bias);
         assertTrue(ivotesAdapter.tokenIsDelegated(1));
@@ -70,15 +67,16 @@ contract TestCreateLock_DelegationAndVoter is
 
         // alice creates second lock which should
         // automatically increase her delegation power.
-        {
-            vm.startPrank(alice);
-            token.approve(address(escrow), lock2Amount);
-            escrow.createLock(lock2Amount, MAX_TIME);
-            vm.stopPrank();
-        }
+        vm.startPrank(alice);
+        token.approve(address(escrow), lock2Amount);
+        uint256 checkpointTs2 = weekStartTs(block.timestamp);
+        createLockAndMoveToNextWeek(lock2Amount, MAX_TIME);
+        vm.stopPrank();
+        alice1Bias = bias(lock1Amount, block.timestamp - checkpointTs);
+        uint256 alice2Bias = bias(lock2Amount, block.timestamp - checkpointTs2);
 
         assertEq(ivotesAdapter.getVotes(alice), alice1Bias + alice2Bias);
-        assertEq(voter.votes(alice, gauge), alice1Bias);
+        assertEq(voter.votes(alice, gauge), bias(lock1Amount, block.timestamp - checkpointTs - 1 weeks));
         assertTrue(ivotesAdapter.tokenIsDelegated(2));
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 2);
     }

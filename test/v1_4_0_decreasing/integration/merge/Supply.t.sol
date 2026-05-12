@@ -42,9 +42,11 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
 
         uint256 weekStartTs = weekStartTs(block.timestamp);
-        uint256 currentTs = block.timestamp;
 
         escrow.merge(from, to);
+
+        vm.warp(block.timestamp + 1 weeks);
+        uint256 currentTs = block.timestamp;
 
         uint256 fromLatestEpoch = curve.tokenPointLatestIndex(from);
         assertEq(fromLatestEpoch, 1);
@@ -151,7 +153,7 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         // So we restrict `_mergeTime` to be greater than
         // both token's maturity date.
         if (_fromLockTime != _toLockTime) {
-            vm.assume(_mergeTime > _toLockTime + maxTime);
+            vm.assume(_mergeTime > weekStartTs(_toLockTime) + maxTime);
         }
 
         mintAndApproveEscrow(uint256(_lock1Amount) + uint256(_lock2Amount));
@@ -164,24 +166,23 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         uint256 to = escrow.createLock(_lock2Amount, MAX_TIME);
         vm.warp(_mergeTime);
         escrow.merge(from, to);
+        vm.warp(block.timestamp + 1 weeks);
 
-        uint256 currentTs = block.timestamp;
+        uint256 currentTs = weekStartTs(block.timestamp);
         uint256 fromLockWeekTs = weekStartTs(_fromLockTime);
         uint256 toLockWeekTs = weekStartTs(_toLockTime);
         uint256 toLockEnd = toLockWeekTs + maxTime;
-        
+        uint256 mergeWeekTs = weekStartTs(_mergeTime);
+
         int256 bias;
-        
         if (_mergeTime >= toLockEnd) {
             bias = 0;
         } else {
             bias =
-                biasFP(_lock1Amount, _mergeTime - fromLockWeekTs) +
-                biasFP(_lock2Amount, _mergeTime - toLockWeekTs);
+                biasFP(_lock1Amount, currentTs - fromLockWeekTs) +
+                biasFP(_lock2Amount, currentTs - toLockWeekTs);
         }
 
         assertTotalSupply(currentTs, bias);
     }
-
-    
 }

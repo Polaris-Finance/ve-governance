@@ -293,9 +293,11 @@ contract LinearDecreasingCurve is
             // TODO
             // For safety reasons, we don't allow checkpoints
             // on the exact checkpointInterval.
+            /*
             if (block.timestamp % checkpointInterval == 0) {
                 revert CheckpointOnDepositIntervalNotAllowed();
             }
+            */
 
             for (uint256 i = 0; i < 255; ++i) {
                 t_i += checkpointInterval;

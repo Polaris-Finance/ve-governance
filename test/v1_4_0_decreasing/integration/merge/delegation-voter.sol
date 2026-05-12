@@ -47,28 +47,26 @@ contract TestMerge_DelegationAndVoter is
         voter.createGauge(gauge, "metadata");
 
         // alice creates 2 locks(nfts), delegates to herself and votes.
-        {
-            vm.startPrank(alice);
-            token.approve(address(escrow), amount1 + amount2);
+        vm.startPrank(alice);
+        token.approve(address(escrow), amount1 + amount2);
 
-            escrow.createLock(amount1, MAX_TIME);
-            ivotesAdapter.delegate(alice);
-
-            escrow.createLock(amount2, MAX_TIME);
-
-            // vote
-            IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
-            votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
-            voter.vote(votes);
-
-            // approve so address(this) can call merge..
-            nftLock.setApprovalForAll(address(this), true);
-
-            vm.stopPrank();
-        }
-
+        escrow.createLock(amount1, MAX_TIME);
+        escrow.createLock(amount2, MAX_TIME);
         uint256 checkpointTs = weekStartTs(block.timestamp);
-        uint256 writtenTs = block.timestamp;
+        vm.warp(block.timestamp + 1 weeks);
+        ivotesAdapter.delegate(alice);
+
+        // vote
+        vm.warp(block.timestamp + 1 weeks);
+        IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
+        votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
+        voter.vote(votes);
+
+        // approve so address(this) can call merge..
+        nftLock.setApprovalForAll(address(this), true);
+
+        vm.stopPrank();
+
 
         // Assert pre-state before running merge.
         uint256 aliceBias = bias(amount1 + amount2, block.timestamp - checkpointTs);
@@ -80,7 +78,7 @@ contract TestMerge_DelegationAndVoter is
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 2);
 
         // Run merge
-        uint256 lockEnd = getEndTimestamp(checkpointTs, writtenTs);
+        uint256 lockEnd = getEndTimestamp(checkpointTs, checkpointTs);
         vm.warp(lockEnd + 1 seconds);
         escrow.merge(1, 2);
 

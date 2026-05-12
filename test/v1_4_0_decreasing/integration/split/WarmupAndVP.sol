@@ -44,6 +44,7 @@ contract TestSplit_WarmUpAndVotingPower is
         uint256 value = 10e18;
 
         uint256 tokenId1 = escrow.split(from, value);
+        vm.warp(block.timestamp + 1 weeks);
 
         assertEq(escrow.votingPower(from), bias(Lock_1_Amount - value, block.timestamp - weekStart));
         assertEq(escrow.votingPower(tokenId1), bias(value, block.timestamp - weekStart));

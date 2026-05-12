@@ -10,6 +10,8 @@ contract TestMerge_ApproveDelegateAndMerge is TestMerge_ApproveDelegateBase {
         vm.prank(alice);
         ivotesAdapter.undelegate(tokenIds);
 
+        vm.warp(block.timestamp + 1 weeks);
+
         assertEq(ivotesAdapter.tokenIsDelegated(_survivingTokenId), false);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 0);
         assertEq(ivotesAdapter.getVotes(bob), 0);

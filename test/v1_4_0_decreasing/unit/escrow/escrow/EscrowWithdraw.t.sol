@@ -36,18 +36,28 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         escrow.setMinDeposit(0);
     }
 
-    function testRevertIfCreateLockAndWithdrawInSameTx() public {
+    function testRevertIfNonZeroVotingPower() public {
         token.mint(address(this), 100e18);
         token.approve(address(escrow), 100e18);
 
         uint256 tokenId = escrow.createLock(100e18, MAX_TIME);
         nftLock.approve(address(escrow), tokenId);
 
+        // Can withdraw as it's not active until start of next checkpoint
+        escrow.withdraw(tokenId);
+
+        // Create again
+        token.approve(address(escrow), 100e18);
+        tokenId = escrow.createLock(100e18, MAX_TIME);
+        nftLock.approve(address(escrow), tokenId);
+
+        // Not expired
+        vm.warp(weekStartTs(block.timestamp));
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
 
-        // Still not expired
-        vm.warp(block.timestamp + 1);
+        // Not expired
+        vm.warp(block.timestamp + 1 weeks);
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
 
@@ -74,6 +84,7 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
             vm.warp(block.timestamp + 2 weeks + 1 hours);
 
             ivotesAdapter.delegate(_who);
+            vm.warp(block.timestamp + 2 weeks);
 
             // make a vote
             voter.vote(votes);
@@ -93,6 +104,7 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
             escrow.withdraw(tokenId);
         }
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 weeks);
 
         // the nft should have been burnt
         assertEq(nftLock.balanceOf(_who), 0);
@@ -100,12 +112,8 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
 
         assertEq(escrow.votingPower(tokenId), 0);
 
-        // but we should have written a token point in the future
-        TokenPoint memory up = curve.tokenPointHistory(tokenId, 2);
-        assertEq(up.bias, 0);
-        assertEq(up.slope, 0);
-        assertEq(up.writtenTs, weekStartTs(startTime));
-
+        // we should not have written a token point in the future
+        assertEq(curve.tokenPointLatestIndex(tokenId), 1);
     }
 
 

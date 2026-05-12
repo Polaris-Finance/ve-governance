@@ -34,7 +34,7 @@ contract TestIsVoting is IEscrowCurveTokenStorage, EscrowBase {
     function test_shouldCallGaugeVoterWithCorrectDelegateeAddress() public {
         address bob = address(456);
 
-        uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        uint256 tokenId = createLockAndMoveToNextWeek(Lock_1_Amount, MAX_TIME);
 
         // address(this) is an owner. bob becomes a delegatee.
         ivotesAdapter.setAutoDelegationDisabled(true);

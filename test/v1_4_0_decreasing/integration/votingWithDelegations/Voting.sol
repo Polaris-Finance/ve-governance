@@ -22,6 +22,7 @@ contract TestVotingWithDelegation is EscrowBase {
 
         tokenIds[0] = escrow.createLock(Lock_1_Amount, MAX_TIME);
         tokenIds[1] = escrow.createLock(Lock_2_Amount, MAX_TIME);
+        vm.warp(block.timestamp + 1 weeks);
 
         nftLock.enableTransfers();
 
@@ -34,10 +35,11 @@ contract TestVotingWithDelegation is EscrowBase {
     //////////////////////////////////////////////////////////////*/
 
     function test_Vote_Self_Delegating_Tokens() public {
-        uint256 start = weekStartTs((block.timestamp));
+        uint256 start = previousCheckpointTs(block.timestamp);
 
         // make tokenOwner self delegatee
         ivotesAdapter.delegate(tokenOwner);
+        vm.warp(block.timestamp + 1 weeks);
 
         assertEq(ivotesAdapter.numberOfDelegatedTokens(tokenOwner), 2);
 
@@ -64,10 +66,11 @@ contract TestVotingWithDelegation is EscrowBase {
     }
 
     function test_Vote_Delegating_Tokens() public {
-        uint256 start = weekStartTs((block.timestamp));
+        uint256 start = previousCheckpointTs(block.timestamp);
 
         // make tokenOwner self delegatee
         ivotesAdapter.delegate(alice);
+        vm.warp(block.timestamp + 1 weeks);
 
         assertEq(ivotesAdapter.numberOfDelegatedTokens(tokenOwner), 2);
 
@@ -97,7 +100,7 @@ contract TestVotingWithDelegation is EscrowBase {
     function test_Vote_And_Transfer_Delegated_Tokens() public {
         address tokenReceiver = address(123);
 
-        uint256 start = weekStartTs((block.timestamp));
+        uint256 start = previousCheckpointTs(block.timestamp);
 
         {
             // make Alice delegatee with tokenId = 1 and 2
@@ -113,6 +116,7 @@ contract TestVotingWithDelegation is EscrowBase {
             ivotesAdapter.delegate(bob);
             vm.stopPrank();
         }
+        vm.warp(block.timestamp + 1 weeks);
 
         assertEq(ivotesAdapter.numberOfDelegatedTokens(tokenOwner), 2);
 
@@ -142,20 +146,29 @@ contract TestVotingWithDelegation is EscrowBase {
         assertEq(voter.votes(bob, gauge), 0);
 
         nftLock.transferFrom(address(this), tokenReceiver, tokenIds[0]);
+        vm.warp(block.timestamp + 1 weeks);
+
+        token1Bias = bias(Lock_1_Amount, block.timestamp - start);
+        token2Bias = bias(Lock_2_Amount, block.timestamp - start);
 
         assertEq(ivotesAdapter.getVotes(alice), token2Bias);
         assertEq(ivotesAdapter.getVotes(bob), token1Bias);
 
-        assertEq(voter.votes(alice, gauge), token2Bias);
+        assertEq(voter.votes(alice, gauge), total);
         assertEq(voter.votes(bob, gauge), 0);
 
         vm.prank(tokenReceiver);
         nftLock.transferFrom(tokenReceiver, address(this), tokenIds[0]);
 
+        vm.warp(block.timestamp + 1 weeks);
+        token1Bias = bias(Lock_1_Amount, block.timestamp - start);
+        token2Bias = bias(Lock_2_Amount, block.timestamp - start);
+        total = token1Bias + token2Bias;
+
         assertEq(ivotesAdapter.getVotes(alice), total);
         assertEq(ivotesAdapter.getVotes(bob), 0);
 
-        assertEq(voter.votes(alice, gauge), token2Bias);
+        assertEq(voter.votes(alice, gauge), bias(Lock_2_Amount, block.timestamp - start - 1 weeks));
         assertEq(voter.votes(bob, gauge), 0);
     }
 }
