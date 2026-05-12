@@ -82,7 +82,6 @@ contract EscrowBase is
     uint208 internal Lock_1_Amount = uint208(50e18) / 125798400 * 125798400;
     uint208 internal Lock_2_Amount = uint208(30e18) / 125798400 * 125798400;
 
-    uint256 internal Lock_1_ts;
     uint256 internal Lock_1_start;
 
     uint256 internal Lock_2_ts;
@@ -164,12 +163,12 @@ contract EscrowBase is
         escrow.setIVotesAdapter(address(ivotesAdapter));
     }
 
-    function _givenExistingLock() internal {
+    function _givenExistingLock(bool _moveForward) internal {
         vm.warp(block.timestamp + 1 hours);
-        uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        escrow.createLock(Lock_1_Amount, MAX_TIME);
 
-        Lock_1_ts = block.timestamp;
-        Lock_1_start = (block.timestamp / checkpointInterval) * checkpointInterval;
+        Lock_1_start = weekStartTs(block.timestamp);
+        if (_moveForward) vm.warp(block.timestamp + 1 weeks);
     }
 
     function mintAndApproveEscrow() internal {
@@ -285,25 +284,33 @@ contract EscrowBase is
         uint256 _secondLockTime,
         uint256 _mergeTime
     ) public view returns (uint256) {
-        uint256 mergeWeekStartTs = weekStartTs(_mergeTime);
         uint256 fromLockWeekStartTs = weekStartTs(_firstLockTime);
+        uint256 toLockWeekStartTs = weekStartTs(_secondLockTime);
+        uint256 mergeTime = weekStartTs(_mergeTime);
 
-        if (_firstLockTime == _secondLockTime && _secondLockTime == _mergeTime) {
+        if (fromLockWeekStartTs == toLockWeekStartTs && toLockWeekStartTs == mergeTime) {
             return 1;
         }
 
         // How many weeks between the first lock and the last lock.
-        uint256 count = (_mergeTime - fromLockWeekStartTs) / 1 weeks;
-
-        // Add one more for the first lock, as it also
-        // wouldn't be included in week counts.
-        count++;
+        // Add one more for the first lock, as it also wouldn't be included in week counts,
+        uint256 count = (mergeTime - fromLockWeekStartTs) / 1 weeks + 1;
 
         return count;
     }
 
     function avoidWeekBoundary(uint256 _t) internal view returns (uint256) {
         return _t % checkpointInterval == 0 ? _t + 1 : _t;
+    }
+
+    function createLockAndMoveToNextWeek(uint256 _amount) internal returns (uint256) {
+        return createLockAndMoveToNextWeek(_amount, MAX_TIME);
+    }
+
+    function createLockAndMoveToNextWeek(uint256 _amount, uint256 _duration) internal returns (uint256) {
+        uint256 tokenId = escrow.createLock(_amount, _duration);
+        vm.warp(block.timestamp + 1 weeks);
+        return tokenId;
     }
 
     // The default sender to contract calls ends up a test contract itself.

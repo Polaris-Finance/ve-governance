@@ -22,6 +22,7 @@ contract TestSplit_ApproveDelegateAndTransfer is TestSplit_ApproveDelegateBase {
             nftLock.transferFrom(alice, dave, _tokenIds[i]);
         }
         vm.stopPrank();
+        vm.warp(block.timestamp + 1 weeks);
 
         // Transfer auto-delegates to Dave's pre-set delegatee Eve
         for (uint256 i = 0; i < _tokenIds.length; i++) {
@@ -42,11 +43,21 @@ contract TestSplit_ApproveDelegateAndTransfer is TestSplit_ApproveDelegateBase {
     function test_Split_PartialTransfer_BobRetainsRemainingPower() public {
         uint256 splitAmount = getFlooredAmount(5e18);
         _approveCharlieAndSplit(1, splitAmount);
+        vm.warp(block.timestamp + 1 weeks);
 
         vm.prank(alice);
         nftLock.transferFrom(alice, dave, 2);
 
+        // Until start of next checkpoint interval, it's not effective
         uint256 elapsed = block.timestamp - checkpointTs;
+        assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
+        assertEq(ivotesAdapter.numberOfDelegatedTokens(dave), 1);
+        assertEq(ivotesAdapter.getVotes(bob), bias(aliceAmount, elapsed));
+        assertEq(ivotesAdapter.getVotes(eve), 0);
+
+        // Move 1 week forward
+        vm.warp(block.timestamp + 1 weeks);
+        elapsed = block.timestamp - checkpointTs;
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(dave), 1);
         assertEq(ivotesAdapter.getVotes(bob), bias(aliceAmount - splitAmount, elapsed));
@@ -61,6 +72,7 @@ contract TestSplit_ApproveDelegateAndTransfer is TestSplit_ApproveDelegateBase {
         address gauge = address(0x777);
         voter.createGauge(gauge, "metadata");
 
+        vm.warp(block.timestamp + 1 weeks);
         vm.prank(bob);
         voter.vote(_singleVote(gauge));
 
@@ -68,12 +80,24 @@ contract TestSplit_ApproveDelegateAndTransfer is TestSplit_ApproveDelegateBase {
         assertEq(voter.votes(bob, gauge), bias(aliceAmount, elapsed));
 
         _approveCharlieAndSplit(1, splitAmount);
+        vm.warp(block.timestamp + 1 weeks);
 
         vm.prank(alice);
         nftLock.transferFrom(alice, dave, 2);
 
+        // Until start of next checkpoint interval, it's not effective
+        elapsed = block.timestamp - checkpointTs;
+        uint256 biasBeforeCheckpoint = bias(aliceAmount, elapsed);
+        assertEq(voter.votes(bob, gauge), biasBeforeCheckpoint);
+        assertEq(ivotesAdapter.getVotes(bob), biasBeforeCheckpoint);
+        assertEq(ivotesAdapter.getVotes(eve), 0);
+
+        // Move 1 week forward
+        vm.warp(block.timestamp + 1 weeks);
+        elapsed = block.timestamp - checkpointTs;
         // Bob's gauge vote auto-decreases without revoting
-        assertEq(voter.votes(bob, gauge), bias(aliceAmount - splitAmount, elapsed));
+        // enableUpdateVotingPowerHook is set to true, so epoch is always zero in AddressGagueVoter
+        assertEq(voter.votes(bob, gauge), biasBeforeCheckpoint);
         assertEq(ivotesAdapter.getVotes(bob), bias(aliceAmount - splitAmount, elapsed));
         assertEq(ivotesAdapter.getVotes(eve), bias(splitAmount, elapsed));
     }

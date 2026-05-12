@@ -44,6 +44,8 @@ contract TestMerge_WarmUpAndVotingPower is
     function test_Merge() public {
         escrow.merge(from, to);
 
+        vm.warp(block.timestamp + 1 weeks);
+
         assertEq(escrow.votingPower(from), 0);
         assertEq(
             escrow.votingPower(to),

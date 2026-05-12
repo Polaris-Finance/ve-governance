@@ -321,7 +321,7 @@ contract VotingEscrowDecreasing is
         return _createLockFor(_value, _duration, _to);
     }
 
-    /// @dev Deposit `_value` tokens for `_to` starting at previous deposit interval
+    /// @dev Deposit `_value` tokens for `_to` starting at next deposit interval
     /// @param _value Amount to deposit
     /// @param _duration For how long the tokens are locked in the NFT
     /// @param _to Address to deposit
@@ -332,7 +332,7 @@ contract VotingEscrowDecreasing is
         if(_duration > maxTime) revert DurationTooLong();
 
         // query the duration lib to get the last time we could deposit
-        uint256 startTime = IClock(clock).epochPrevCheckpointTs();
+        uint256 startTime = IClock(clock).nextCheckpointTs();
         // To keep LinearDecreasingCurve simple, we create a virtual timestamp <= current timestamp,
         // so that it seems that all locks were created with max duration
         uint256 virtualStartTime = _getVirtualStartTime(startTime, _duration, maxTime);
@@ -433,7 +433,7 @@ contract VotingEscrowDecreasing is
             IDelegateMoveVoteRecipient.TokenLock(ownerFrom, _to, oldLockedTo.lockedBalance)
         );
 
-        uint256 startTime = IClock(clock).epochPrevCheckpointTs();
+        uint256 startTime = IClock(clock).nextCheckpointTs();
 
         // Update for `_from`.
         IERC721EMB(lockNFT).burn(_from);
@@ -491,7 +491,7 @@ contract VotingEscrowDecreasing is
             revert AmountTooSmall();
         }
 
-        uint256 startTime = IClock(clock).epochPrevCheckpointTs();
+        uint256 startTime = IClock(clock).nextCheckpointTs();
         // update for `_from`.
         LockedBalanceDecreasing memory newFromLocked = LockedBalanceDecreasing(
             LockedBalance(amount1, locked_.lockedBalance.start),
@@ -524,7 +524,7 @@ contract VotingEscrowDecreasing is
         return newTokenId;
     }
 
-    function _checkOwner(uint256 _tokenId) internal returns (address, address) {
+    function _checkOwner(uint256 _tokenId) internal view returns (address, address) {
         address sender = _msgSender();
 
         // For some erc721, `ownerOf` reverts and for some,

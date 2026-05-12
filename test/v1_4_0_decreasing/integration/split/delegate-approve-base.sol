@@ -43,14 +43,13 @@ abstract contract TestSplit_ApproveDelegateBase is
 
         // Alice creates a lock and delegates to Bob
         vm.startPrank(alice);
-        {
-            token.approve(address(escrow), aliceAmount);
-            escrow.createLock(aliceAmount, MAX_TIME);
-            ivotesAdapter.delegate(bob);
-        }
+        token.approve(address(escrow), aliceAmount);
+        escrow.createLock(aliceAmount, MAX_TIME);
+        checkpointTs = weekStartTs(block.timestamp);
+        vm.warp(block.timestamp + 1 weeks);
+        ivotesAdapter.delegate(bob);
         vm.stopPrank();
 
-        checkpointTs = weekStartTs(block.timestamp);
     }
 
     function _approveCharlieAndSplit(uint256 _tokenId, uint256 _splitAmount) internal {
@@ -83,6 +82,7 @@ abstract contract TestSplit_ApproveDelegateBase is
     ///         Alice then removes delegation successfully.
     function test_Split_ByApprovedThirdParty_MaintainsDelegation() public {
         _approveCharlieAndSplit(1, 5e18);
+        vm.warp(block.timestamp + 1 weeks);
 
         uint256[] memory tokenIds = new uint256[](2);
         tokenIds[0] = 1;
@@ -99,6 +99,7 @@ abstract contract TestSplit_ApproveDelegateBase is
         address gauge = address(0x777);
         voter.createGauge(gauge, "metadata");
 
+        vm.warp(block.timestamp + 1 weeks);
         // Bob votes on the gauge (he has the delegated voting power)
         vm.prank(bob);
         voter.vote(_singleVote(gauge));
@@ -106,6 +107,7 @@ abstract contract TestSplit_ApproveDelegateBase is
         assertEq(voter.votes(bob, gauge), bias(aliceAmount, block.timestamp - checkpointTs));
 
         _approveCharlieAndSplit(1, 5e18);
+        vm.warp(block.timestamp + 1 weeks);
 
         uint256[] memory tokenIds = new uint256[](2);
         tokenIds[0] = 1;
@@ -114,7 +116,7 @@ abstract contract TestSplit_ApproveDelegateBase is
         _assertDelegatedToBob(tokenIds);
 
         // Bob's gauge vote unchanged (split doesn't change total amount)
-        assertEq(voter.votes(bob, gauge), bias(aliceAmount, block.timestamp - checkpointTs));
+        assertEq(voter.votes(bob, gauge), bias(aliceAmount, block.timestamp - 1 weeks - checkpointTs));
 
         _removeDelegationAndAssert(tokenIds);
     }
@@ -128,6 +130,7 @@ abstract contract TestSplit_ApproveDelegateBase is
 
         // Charlie splits again: tokenId 1 (20e18) -> tokenId 1 (10e18) + tokenId 3 (10e18)
         _approveCharlieAndSplit(1, 10e18);
+        vm.warp(block.timestamp + 1 weeks);
 
         uint256[] memory tokenIds = new uint256[](3);
         tokenIds[0] = 1;

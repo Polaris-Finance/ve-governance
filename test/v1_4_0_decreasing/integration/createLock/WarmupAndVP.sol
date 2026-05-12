@@ -33,7 +33,7 @@ contract TestCreateLock_VotingPower is IEscrowCurveTokenStorage, IEscrowCurveGlo
     }
 
     function test_CreateLock() public {
-        uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        uint256 tokenId = createLockAndMoveToNextWeek(Lock_1_Amount, MAX_TIME);
 
         assertVotingPower(tokenId, biasFP(Lock_1_Amount, block.timestamp - weekStart));
 

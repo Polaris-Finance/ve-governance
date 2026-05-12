@@ -88,14 +88,17 @@ contract TestDelegate is Base {
         dg.setAutoDelegationDisabled(false);
         dg.delegate(bob);
 
+        vm.warp(block.timestamp + 1 weeks);
+
         assertEq(dg.delegates(sender), bob);
         assertEq(dg.numberOfDelegatedTokens(sender), 3);
 
         assertEq(dg.getVotes(alice), 0);
 
-        uint256 expectedVPBob = bias(amount1, block.timestamp - weekStartTs(block.timestamp)) +
-            bias(amount2, block.timestamp - weekStartTs(block.timestamp)) +
-            bias(amount3, block.timestamp - weekStartTs(block.timestamp));
+        uint256 elapsed = block.timestamp - previousCheckpointTs(block.timestamp);
+        uint256 expectedVPBob = bias(amount1, elapsed) +
+            bias(amount2, elapsed) +
+            bias(amount3, elapsed);
 
         assertEq(dg.getVotes(bob), expectedVPBob);
     }

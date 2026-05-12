@@ -58,6 +58,8 @@ abstract contract TestMerge_ApproveDelegateBase is
 
         checkpointTs = weekStartTs(block.timestamp);
         writtenTs = block.timestamp;
+
+        vm.warp(block.timestamp + 2 weeks);
     }
 
     function _warpPastMaturation() internal {
@@ -135,6 +137,8 @@ abstract contract TestMerge_ApproveDelegateBase is
         address gauge = address(0x777);
         voter.createGauge(gauge, "metadata");
 
+        vm.warp(block.timestamp + 2 weeks);
+
         vm.prank(bob);
         voter.vote(_singleVote(gauge));
 
@@ -143,6 +147,8 @@ abstract contract TestMerge_ApproveDelegateBase is
 
         // Both locks have the same start time, so merge is allowed without maturation
         _approveCharlieAndMerge(1, 2);
+
+        vm.warp(block.timestamp + 2 weeks);
 
         // Token 1 is burned, token 2 survives and remains delegated
         assertEq(ivotesAdapter.tokenIsDelegated(2), true);

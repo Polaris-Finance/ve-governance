@@ -60,8 +60,18 @@ contract FixedPointBase {
         return (biasFPCapped(_amount, _duration) / 1e18).toUint256();
     }
 
+    function previousCheckpointTs() internal view returns (uint256) {
+        return previousCheckpointTs(block.timestamp);
+    }
+
+    function previousCheckpointTs(uint256 _time) internal view returns (uint256) {
+        return _time / checkpointInterval * checkpointInterval;
+    }
+
     function weekStartTs(uint256 _time) internal view returns (uint256) {
-        return (_time / checkpointInterval) * checkpointInterval;
+        uint256 result = _time / checkpointInterval * checkpointInterval;
+        if (result < _time) result += checkpointInterval;
+        return result;
     }
 
     // bias's decrease stops after `_startTime + maxTime`. In case `maxTime` is small

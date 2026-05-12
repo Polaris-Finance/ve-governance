@@ -51,7 +51,7 @@ contract TestGaugeVote is GaugeVotingBase {
             ivotesAdapter.delegate(owner);
 
             token.approve(address(escrow), lockDeposit);
-            tokenId = escrow.createLock(lockDeposit, MAX_TIME);
+            tokenId = createLockAndMoveToNextWeek(lockDeposit, MAX_TIME);
         }
         vm.stopPrank();
 

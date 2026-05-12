@@ -69,6 +69,7 @@ contract EscrowIVotesAdapterDecreasing is
     mapping(address => bool) private autoDelegationDisabled_;
 
     uint256 private maxTime;
+    uint256 private checkpointInterval;
 
     /*///////////////////////////////////////////////////////////////
                             Initialization
@@ -99,6 +100,7 @@ contract EscrowIVotesAdapterDecreasing is
         if (_startPaused) _pause();
 
         maxTime = IClock(escrowClock).epochDuration() * MAX_EPOCHS;
+        checkpointInterval = IClock(escrowClock).checkpointInterval();
     }
 
     function pause() external auth(DELEGATION_ADMIN_ROLE) {
@@ -391,18 +393,19 @@ contract EscrowIVotesAdapterDecreasing is
         mapping(uint256 => int256) storage slopeChanges_ = slopeChanges[_delegatee];
 
         uint256 expectedWrittenTs;
+        uint256 nextCheckpointStart = _getNextCheckpointStart();
 
         {
-            uint256 checkpointInterval = IClock(escrowClock).checkpointInterval();
             uint256 lastPointCheckpoint = lastPoint.writtenTs;
+            // TODO: not needed:
             uint256 t_i = (lastPointCheckpoint / checkpointInterval) * checkpointInterval;
 
             // Since `_checkpoint` can be called manually due to transition,
             // the global point's writtenTs shouldn't be block.timestamp
             // by default, but whatever the transition's max week is.
             expectedWrittenTs = t_i + _transitionCount * checkpointInterval;
-            if (expectedWrittenTs > block.timestamp) {
-                expectedWrittenTs = block.timestamp;
+            if (expectedWrittenTs > nextCheckpointStart) {
+                expectedWrittenTs = nextCheckpointStart;
             }
 
             for (uint256 i = 0; i < _transitionCount; ++i) {
@@ -442,7 +445,7 @@ contract EscrowIVotesAdapterDecreasing is
         // current timestamp, overwrite it, otherwise store a new one.
         if (
             latestPointIndex_ != 0 && 
-            pointHistory[_delegatee][latestPointIndex_].writtenTs == block.timestamp
+            pointHistory[_delegatee][latestPointIndex_].writtenTs == nextCheckpointStart
         ) {
             pointHistory[_delegatee][latestPointIndex_] = lastPoint;
         } else {
@@ -545,12 +548,12 @@ contract EscrowIVotesAdapterDecreasing is
 
         mapping(uint256 => int256) storage slopeChanges_ = slopeChanges[_delegatee];
 
-        uint256 checkpointInterval = IClock(escrowClock).checkpointInterval();
+        uint256 _checkpointInterval = checkpointInterval;
 
-        uint256 t_i = (ts / checkpointInterval) * checkpointInterval;
+        uint256 t_i = (ts / _checkpointInterval) * _checkpointInterval;
 
         for (uint256 i = 0; i < 255; ++i) {
-            t_i += checkpointInterval;
+            t_i += _checkpointInterval;
             int256 dSlope = 0;
             if (t_i > _timestamp) {
                 t_i = _timestamp;
@@ -575,13 +578,25 @@ contract EscrowIVotesAdapterDecreasing is
                         Private Helper Functions
     //////////////////////////////////////////////////////////////*/
 
+    function _getNextCheckpointStart() internal view returns (uint256) {
+        uint256 _checkpointInterval = checkpointInterval;
+        uint256 nextCheckpointStart = block.timestamp / _checkpointInterval * _checkpointInterval;
+        if (nextCheckpointStart < block.timestamp) nextCheckpointStart += _checkpointInterval;
+        return nextCheckpointStart;
+    }
+
     /// @dev Note that this function also updates slopeChanges.
     function _getBiasAndSlope(
         address _delegatee,
         IVotingEscrow.LockedBalance memory _locked,
         function(int256) view returns (int256) op
     ) internal override returns (int256, int256) {
-        uint256 elapsed = block.timestamp - _locked.start;
+        uint256 nextCheckpointStart = _getNextCheckpointStart();
+        if (nextCheckpointStart < _locked.start) {
+            return (0, 0);
+        }
+
+        uint256 elapsed = nextCheckpointStart - _locked.start;
         elapsed = elapsed > maxTime ? maxTime : elapsed;
 
         int256 amount = uint256(_locked.amount).toInt256();

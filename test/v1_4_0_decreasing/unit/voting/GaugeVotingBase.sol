@@ -284,4 +284,14 @@ contract GaugeVotingBase is
                 _perm
             );
     }
+
+    function createLockAndMoveToNextWeek(uint256 _amount) internal returns (uint256) {
+        return createLockAndMoveToNextWeek(_amount, MAX_TIME);
+    }
+
+    function createLockAndMoveToNextWeek(uint256 _amount, uint256 _duration) internal returns (uint256) {
+        uint256 tokenId = escrow.createLock(_amount, _duration);
+        vm.warp(block.timestamp + 1 weeks);
+        return tokenId;
+    }
 }

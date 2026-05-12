@@ -190,6 +190,16 @@ contract ClockV1_2_0 is IClockV1_2_0, DaoAuthorizable, UUPSUpgradeable {
                             Checkpointing
     //////////////////////////////////////////////////////////////*/
 
+    function nextCheckpointTs() external view returns (uint256) {
+        return nextCheckpointTs(block.timestamp);
+    }
+
+    function nextCheckpointTs(uint256 timestamp) public view returns (uint256) {
+        uint256 result = timestamp / CHECKPOINT_INTERVAL * CHECKPOINT_INTERVAL;
+        if (result < timestamp) result += CHECKPOINT_INTERVAL;
+        return result;
+    }
+
     function epochNextCheckpointIn() external view returns (uint256) {
         return resolveEpochNextCheckpointIn(block.timestamp);
     }

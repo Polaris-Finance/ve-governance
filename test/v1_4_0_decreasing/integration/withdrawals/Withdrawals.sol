@@ -73,6 +73,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
 
         vm.warp(2);
         uint256 tokenId2 = escrow.createLock(15e18, MAX_TIME);
+        vm.warp(block.timestamp + 1 weeks);
 
         escrow.merge(tokenId2, tokenId1);
         nftLock.approve(address(escrow), tokenId1);
@@ -90,6 +91,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
 
         vm.warp(2);
         uint256 tokenId3 = escrow.createLock(15e18, MAX_TIME);
+        vm.warp(block.timestamp + 1 weeks);
 
         escrow.merge(tokenId3, tokenId2);
         escrow.merge(tokenId2, tokenId1);
@@ -113,6 +115,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
 
         nftLock.approve(address(escrow), tokenId1);
 
+        vm.warp(block.timestamp + 1 weeks);
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId1);
     }
@@ -143,7 +146,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
     function testRevert_AtomicWithdrawal_CreateLockOnly() public {
         super.mintAndApproveEscrow();
 
-        uint256 tokenId = escrow.createLock(10e18, MAX_TIME);
+        uint256 tokenId = createLockAndMoveToNextWeek(10e18, MAX_TIME);
         nftLock.approve(address(escrow), tokenId);
 
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
@@ -164,6 +167,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         escrow.merge(newTokenId, existingTokenId);
         nftLock.approve(address(escrow), existingTokenId);
 
+        vm.warp(block.timestamp + 1 weeks);
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(existingTokenId);
     }
@@ -176,6 +180,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         uint256 splitTokenId = escrow.split(tokenId, 10e18);
         nftLock.approve(address(escrow), tokenId);
 
+        vm.warp(block.timestamp + 1 weeks);
         // Try to withdraw the original token
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
@@ -200,6 +205,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         escrow.merge(newTokenId, existingTokenId);
         uint256 splitTokenId = escrow.split(existingTokenId, 10e18);
 
+        vm.warp(block.timestamp + 1 weeks);
         // Try to withdraw any of the tokens
         nftLock.approve(address(escrow), existingTokenId);
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
@@ -229,6 +235,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         escrow.merge(tokenId2, tokenId1);
         nftLock.approve(address(escrow), tokenId1);
 
+        vm.warp(block.timestamp + 1 weeks);
         // Should revert - not expired yet
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId1);
@@ -247,6 +254,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
         vm.warp(2);
         uint256 splitTokenId = escrow.split(tokenId, 10e18);
 
+        vm.warp(block.timestamp + 1 weeks);
         // Should revert - not expired yet
         nftLock.approve(address(escrow), tokenId);
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
@@ -276,6 +284,7 @@ contract TestWithdrawal is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage, 
 
         nftLock.approve(address(escrow), tokenId1);
 
+        vm.warp(block.timestamp + 1 weeks);
         // Should revert - not expired yet
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId1);

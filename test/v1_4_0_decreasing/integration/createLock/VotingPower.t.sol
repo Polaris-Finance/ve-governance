@@ -38,9 +38,9 @@ contract TestVotingPower is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage,
 
     function test_whenOnlyOneTokenPoint() public {
         // Given: no prior locks existing
-        uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 weekStartTs = weekStartTs(block.timestamp);
         uint256 endTs = getEndTimestamp(weekStartTs, block.timestamp);
+        uint256 tokenId = createLockAndMoveToNextWeek(Lock_1_Amount, MAX_TIME);
 
         // 1
         assertVotingPower(tokenId, biasFP(Lock_1_Amount, block.timestamp - weekStartTs));
@@ -61,6 +61,7 @@ contract TestVotingPower is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage,
 
         escrow.merge(tokenId1, tokenId2);
         uint256 endTs = getEndTimestamp(weekStartTs, block.timestamp);
+        vm.warp(block.timestamp + 1 weeks);
 
         assertVotingPower(
             tokenId2,

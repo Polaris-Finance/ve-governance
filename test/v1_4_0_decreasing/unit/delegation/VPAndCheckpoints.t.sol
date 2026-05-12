@@ -22,12 +22,14 @@ contract TestVPAndCheckpoints is Base {
         _mockLocked(singleId[0], amount, start);
         dg.delegate(singleId);
 
+        vm.warp(block.timestamp + 1 weeks);
+
         assertGlobalPoint(
             alice,
             1,
-            biasFP(amount, block.timestamp - start),
+            biasFP(amount, 0),
             slopeFP(amount),
-            block.timestamp
+            start
         );
         assertSlopeChange(alice, start + maxTime, amount);
     }
@@ -44,12 +46,14 @@ contract TestVPAndCheckpoints is Base {
 
         dg.delegate(multiIds);
 
+        vm.warp(block.timestamp + 1 weeks);
+
         assertGlobalPoint(
             alice,
             1,
-            biasFP(amount1 + amount2, block.timestamp - start),
+            biasFP(amount1 + amount2, 0),
             slopeFP(amount1 + amount2),
-            block.timestamp
+            start
         );
         assertSlopeChange(alice, start + maxTime, amount1 + amount2);
     }
@@ -60,7 +64,6 @@ contract TestVPAndCheckpoints is Base {
         // Delegate first token
         uint256 amount1 = getFlooredAmount(10e18);
         uint256 start1 = weekStartTs(block.timestamp);
-        uint256 start1Ts = block.timestamp;
         _mockLocked(singleId[0], amount1, start1);
 
         dg.delegate(singleId);
@@ -77,23 +80,25 @@ contract TestVPAndCheckpoints is Base {
 
         dg.delegate(singleId);
 
+        vm.warp(block.timestamp + 1 weeks);
+
         // start asserting
         assertSlopeChange(alice, start1 + maxTime, amount1);
         assertSlopeChange(alice, start2 + maxTime, amount2);
 
         // asserts previous global point.
         GlobalPoint memory p = dg.pointHistory_(alice, 1);
-        assertEq(p.bias, biasFP(amount1, start1Ts - start1));
+        assertEq(p.bias, biasFP(amount1, 0));
         assertEq(p.slope, slopeFP(amount1));
-        assertEq(p.writtenTs, start1Ts);
+        assertEq(p.writtenTs, start1);
 
         // asserts latest global point.
         assertGlobalPoint(
             alice,
             2,
-            biasFP(amount1, block.timestamp - start1) + biasFP(amount2, block.timestamp - start2),
+            biasFP(amount1, start2 - start1) + biasFP(amount2, 0),
             slopeFP(amount2) + slopeFP(amount1),
-            block.timestamp
+            start2
         );
     }
 
@@ -108,8 +113,10 @@ contract TestVPAndCheckpoints is Base {
 
         dg.undelegate(singleId);
 
+        vm.warp(block.timestamp + 1 weeks);
+
         // asserts latest global point.
-        assertGlobalPoint(alice, 1, 0, 0, block.timestamp);
+        assertGlobalPoint(alice, 1, 0, 0, start1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -120,17 +127,22 @@ contract TestVPAndCheckpoints is Base {
         dg.setDelegateAddress(alice);
 
         uint256 amount = getFlooredAmount(10e18);
-        _mockLocked(singleId[0], getFlooredAmount(10e18), weekStartTs(block.timestamp));
+        uint256 start = weekStartTs(block.timestamp);
+        _mockLocked(singleId[0], getFlooredAmount(10e18), start);
         dg.delegate(singleId);
 
-        uint256 expectedVP = bias(amount, block.timestamp - weekStartTs(block.timestamp));
+        vm.warp(block.timestamp + 1 weeks);
 
-        assertEq(dg.getPastVotes(alice, block.timestamp - 1), 0);
+        uint256 expectedVP = bias(amount, block.timestamp - start);
+
+        assertEq(dg.getPastVotes(alice, block.timestamp - 1 weeks - 1), 0);
 
         assertEq(dg.getPastVotes(alice, block.timestamp), expectedVP);
         assertEq(dg.getVotes(alice), expectedVP);
 
         dg.undelegate(singleId);
+
+        vm.warp(block.timestamp + 1 weeks);
 
         assertEq(dg.getPastVotes(alice, block.timestamp), 0);
         assertEq(dg.getVotes(alice), 0);
@@ -146,18 +158,23 @@ contract TestVPAndCheckpoints is Base {
         _mockLocked(multiIds[1], amount2, start);
         dg.delegate(multiIds);
 
+        vm.warp(block.timestamp + 1 weeks);
+
         uint256 expectedVPToken1 = bias(amount1, block.timestamp - start);
         uint256 expectedVPToken2 = bias(amount2, block.timestamp - start);
         uint256 total = expectedVPToken1 + expectedVPToken2;
-        assertApproxEqAbs(dg.getPastVotes(alice, block.timestamp - 1), 0, 1e11);
+        assertEq(dg.getPastVotes(alice, block.timestamp - 1 weeks - 1), 0);
 
         assertEq(dg.getPastVotes(alice, block.timestamp), total);
         assertApproxEqAbs(dg.getVotes(alice), total, 1e11);
 
         dg.undelegate(getIds(multiIds[1]));
 
-        assertEq(dg.getPastVotes(alice, block.timestamp), expectedVPToken1);
-        assertApproxEqAbs(dg.getVotes(alice), expectedVPToken1, 1e11);
+        vm.warp(block.timestamp + 1 weeks);
+
+        uint256 newExpectedVPToken1 = bias(amount1, block.timestamp - start);
+        assertEq(dg.getPastVotes(alice, block.timestamp), newExpectedVPToken1);
+        assertApproxEqAbs(dg.getVotes(alice), newExpectedVPToken1, 1e11);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -213,9 +230,11 @@ contract TestVPAndCheckpoints is Base {
         uint256 start = weekStartTs(block.timestamp);
 
         _mockLocked(singleId[0], amount, start);
+        vm.warp(block.timestamp + 1 weeks);
+
         dg.delegate(singleId);
 
-        uint256 delegateTs = block.timestamp;
+        uint256 delegateTs = weekStartTs(block.timestamp);
 
         vm.warp(delegateTs + maxTime + 4 weeks);
 
@@ -244,7 +263,6 @@ contract TestVPAndCheckpoints is Base {
         uint256 amount2 = getFlooredAmount(20e18);
         uint256 amount3 = getFlooredAmount(30e18);
         uint256 start = weekStartTs(block.timestamp);
-        uint256 delegateTs = block.timestamp;
 
         // Setup three tokens with different amounts
         uint256 tokenId1 = 1;
@@ -257,6 +275,8 @@ contract TestVPAndCheckpoints is Base {
         _mockVotingPower(tokenId1, 1);
         _mockVotingPower(tokenId2, 1);
         _mockVotingPower(tokenId3, 1);
+
+        vm.warp(start);
 
         // First delegation - creates checkpoint index 1
         dg.delegate(getIds(tokenId1));
@@ -274,13 +294,13 @@ contract TestVPAndCheckpoints is Base {
         assertApproxEqAbs(dg.getVotes(alice), amount1, 1e11);
 
         // Verify final state: only token1 is delegated
-        uint256 expectedVP = bias(amount1, delegateTs - start);
+        uint256 expectedVP = bias(amount1, 0);
         assertEq(dg.getVotes(alice), expectedVP);
 
         // Verify the checkpoint has the correct final values
         GlobalPoint memory p = dg.pointHistory_(alice, 1);
-        assertEq(p.writtenTs, delegateTs);
-        assertEq(p.bias, biasFP(amount1, delegateTs - start));
+        assertEq(p.writtenTs, start);
+        assertEq(p.bias, biasFP(amount1, 0));
         assertEq(p.slope, slopeFP(amount1));
     }
 
@@ -293,7 +313,6 @@ contract TestVPAndCheckpoints is Base {
         uint256 amount2 = getFlooredAmount(20e18);
         uint256 amount3 = getFlooredAmount(30e18);
         uint256 start = weekStartTs(block.timestamp);
-        uint256 delegateTs = block.timestamp;
 
         uint256 tokenId1 = 1;
         uint256 tokenId2 = 2;
@@ -323,14 +342,14 @@ contract TestVPAndCheckpoints is Base {
 
         // Query historical votes at the original timestamp
         // This will use binary search since we're querying a past timestamp
-        uint256 historicalVP = dg.getPastVotes(alice, delegateTs);
+        uint256 historicalVP = dg.getPastVotes(alice, start);
 
         // Should return the final state (only token1 delegated), not inflated value
-        uint256 expectedVP = bias(amount1, delegateTs - start);
+        uint256 expectedVP = bias(amount1, 0);
         assertEq(historicalVP, expectedVP);
 
         // Verify it's NOT returning the inflated value (all three tokens)
-        uint256 inflatedVP = bias(amount1 + amount2 + amount3, delegateTs - start);
+        uint256 inflatedVP = bias(amount1 + amount2 + amount3, 0);
         assertTrue(historicalVP != inflatedVP);
     }
 
@@ -341,7 +360,6 @@ contract TestVPAndCheckpoints is Base {
         uint256 amount1 = getFlooredAmount(10e18);
         uint256 amount2 = getFlooredAmount(20e18);
         uint256 start = weekStartTs(block.timestamp);
-        uint256 firstDelegateTs = block.timestamp;
 
         uint256 tokenId1 = 1;
         uint256 tokenId2 = 2;
@@ -357,7 +375,7 @@ contract TestVPAndCheckpoints is Base {
 
         // Move to a different timestamp
         vm.warp(block.timestamp + 1 weeks);
-        uint256 secondDelegateTs = block.timestamp;
+        uint256 secondDelegateTs = weekStartTs(block.timestamp);
 
         // Second delegation at timestamp T+1week - should create new checkpoint
         dg.delegate(getIds(tokenId2));
@@ -366,12 +384,12 @@ contract TestVPAndCheckpoints is Base {
         // Verify both checkpoints exist with correct timestamps
         GlobalPoint memory p1 = dg.pointHistory_(alice, 1);
         GlobalPoint memory p2 = dg.pointHistory_(alice, 2);
-        assertEq(p1.writtenTs, firstDelegateTs);
+        assertEq(p1.writtenTs, start);
         assertEq(p2.writtenTs, secondDelegateTs);
 
         // Query historical votes at first timestamp
-        uint256 vpAtFirst = dg.getPastVotes(alice, firstDelegateTs);
-        assertEq(vpAtFirst, bias(amount1, firstDelegateTs - start));
+        uint256 vpAtFirst = dg.getPastVotes(alice, start);
+        assertEq(vpAtFirst, bias(amount1, 0));
 
         // Query votes at second timestamp
         uint256 vpAtSecond = dg.getPastVotes(alice, secondDelegateTs);

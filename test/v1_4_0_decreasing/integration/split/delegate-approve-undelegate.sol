@@ -6,6 +6,7 @@ contract TestSplit_ApproveDelegateAndSplit is TestSplit_ApproveDelegateBase {
     function _removeDelegationAndAssert(uint256[] memory _tokenIds) internal override {
         vm.prank(alice);
         ivotesAdapter.undelegate(_tokenIds);
+        vm.warp(block.timestamp + 1 weeks);
 
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             assertEq(ivotesAdapter.tokenIsDelegated(_tokenIds[i]), false);

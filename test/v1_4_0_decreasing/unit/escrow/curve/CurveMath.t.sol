@@ -80,6 +80,7 @@ contract TestDecreasingCurve is CurveBase {
             _getEmptyLockedBalance(),
             LockedBalanceDecreasing(LockedBalance(depositSecond, uint48(checkpointTs)), checkpointTs)
         );
+        vm.warp(block.timestamp + 1 weeks);
 
         // check the token point is registered
         IEscrowCurve.TokenPoint memory tokenPoint = curve.tokenPointHistory(tokenIdFirst, 1);
