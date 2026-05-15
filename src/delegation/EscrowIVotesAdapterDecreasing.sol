@@ -35,7 +35,7 @@ import {CurveConstantLib} from "@libs/CurveConstantLib.sol";
 import {SignedFixedPointMath} from "@libs/SignedFixedPointMathLib.sol";
 import {DelegationHelper} from "./DelegationHelper.sol";
 
-contract EscrowIVotesAdapter is
+contract EscrowIVotesAdapterDecreasing is
     IERC6372,
     ReentrancyGuard,
     Pausable,
@@ -52,9 +52,7 @@ contract EscrowIVotesAdapter is
     bytes32 public constant DELEGATION_TOKEN_ROLE = keccak256("DELEGATION_TOKEN_ROLE");
 
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-    int256 public immutable SHARED_QUADRATIC_COEFFICIENT;
-    /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
-    int256 public immutable SHARED_LINEAR_COEFFICIENT;
+    int256 public immutable SHARED_LINEAR_DENOMINATOR;
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
     int256 public immutable SHARED_CONSTANT_COEFFICIENT;
     /// @custom:oz-upgrades-unsafe-allow state-variable-immutable
@@ -71,16 +69,16 @@ contract EscrowIVotesAdapter is
     mapping(address => bool) private autoDelegationDisabled_;
 
     uint256 private maxTime;
+    uint256 private checkpointInterval;
 
     /*///////////////////////////////////////////////////////////////
                             Initialization
     //////////////////////////////////////////////////////////////*/
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(int256[3] memory _coefficients, uint256 _maxEpochs) {
+    constructor(int256[2] memory _coefficients, uint256 _maxEpochs) {
         SHARED_CONSTANT_COEFFICIENT = _coefficients[0];
-        SHARED_LINEAR_COEFFICIENT = _coefficients[1];
-        SHARED_QUADRATIC_COEFFICIENT = _coefficients[2];
+        SHARED_LINEAR_DENOMINATOR = _coefficients[1];
 
         MAX_EPOCHS = _maxEpochs;
 
@@ -102,6 +100,7 @@ contract EscrowIVotesAdapter is
         if (_startPaused) _pause();
 
         maxTime = IClock(escrowClock).epochDuration() * MAX_EPOCHS;
+        checkpointInterval = IClock(escrowClock).checkpointInterval();
     }
 
     function pause() external auth(DELEGATION_ADMIN_ROLE) {
@@ -394,18 +393,19 @@ contract EscrowIVotesAdapter is
         mapping(uint256 => int256) storage slopeChanges_ = slopeChanges[_delegatee];
 
         uint256 expectedWrittenTs;
+        uint256 nextCheckpointStart = _getNextCheckpointStart();
 
         {
-            uint256 checkpointInterval = IClock(escrowClock).checkpointInterval();
             uint256 lastPointCheckpoint = lastPoint.writtenTs;
+            // TODO: not needed:
             uint256 t_i = (lastPointCheckpoint / checkpointInterval) * checkpointInterval;
 
             // Since `_checkpoint` can be called manually due to transition,
             // the global point's writtenTs shouldn't be block.timestamp
             // by default, but whatever the transition's max week is.
             expectedWrittenTs = t_i + _transitionCount * checkpointInterval;
-            if (expectedWrittenTs > block.timestamp) {
-                expectedWrittenTs = block.timestamp;
+            if (expectedWrittenTs > nextCheckpointStart) {
+                expectedWrittenTs = nextCheckpointStart;
             }
 
             for (uint256 i = 0; i < _transitionCount; ++i) {
@@ -445,7 +445,7 @@ contract EscrowIVotesAdapter is
         // current timestamp, overwrite it, otherwise store a new one.
         if (
             latestPointIndex_ != 0 && 
-            pointHistory[_delegatee][latestPointIndex_].writtenTs == block.timestamp
+            pointHistory[_delegatee][latestPointIndex_].writtenTs == nextCheckpointStart
         ) {
             pointHistory[_delegatee][latestPointIndex_] = lastPoint;
         } else {
@@ -548,12 +548,12 @@ contract EscrowIVotesAdapter is
 
         mapping(uint256 => int256) storage slopeChanges_ = slopeChanges[_delegatee];
 
-        uint256 checkpointInterval = IClock(escrowClock).checkpointInterval();
+        uint256 _checkpointInterval = checkpointInterval;
 
-        uint256 t_i = (ts / checkpointInterval) * checkpointInterval;
+        uint256 t_i = (ts / _checkpointInterval) * _checkpointInterval;
 
         for (uint256 i = 0; i < 255; ++i) {
-            t_i += checkpointInterval;
+            t_i += _checkpointInterval;
             int256 dSlope = 0;
             if (t_i > _timestamp) {
                 t_i = _timestamp;
@@ -578,18 +578,30 @@ contract EscrowIVotesAdapter is
                         Private Helper Functions
     //////////////////////////////////////////////////////////////*/
 
+    function _getNextCheckpointStart() internal view returns (uint256) {
+        uint256 _checkpointInterval = checkpointInterval;
+        uint256 nextCheckpointStart = block.timestamp / _checkpointInterval * _checkpointInterval;
+        if (nextCheckpointStart < block.timestamp) nextCheckpointStart += _checkpointInterval;
+        return nextCheckpointStart;
+    }
+
     /// @dev Note that this function also updates slopeChanges.
     function _getBiasAndSlope(
         address _delegatee,
         IVotingEscrow.LockedBalance memory _locked,
         function(int256) view returns (int256) op
     ) internal override returns (int256, int256) {
-        uint256 elapsed = block.timestamp - _locked.start;
+        uint256 nextCheckpointStart = _getNextCheckpointStart();
+        if (nextCheckpointStart < _locked.start) {
+            return (0, 0);
+        }
+
+        uint256 elapsed = nextCheckpointStart - _locked.start;
         elapsed = elapsed > maxTime ? maxTime : elapsed;
 
         int256 amount = uint256(_locked.amount).toInt256();
 
-        int256 slope = amount * SHARED_LINEAR_COEFFICIENT;
+        int256 slope = amount * 1e18 / SHARED_LINEAR_DENOMINATOR;
         int256 bias = slope *
             int256(elapsed) +
             amount *
