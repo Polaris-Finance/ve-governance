@@ -276,6 +276,10 @@ contract VotingEscrowDecreasing is
         return _locked[_tokenId].lockedBalance;
     }
 
+    function ownerOf(uint256 _tokenId) external view returns (address) {
+        return IERC721EMB(lockNFT).ownerOf(_tokenId);
+    }
+
     /// @return accountVotingPower The voting power of an account at the current block
     /// @dev We cannot do historic voting power at this time because we don't current track
     /// histories of token transfers.
