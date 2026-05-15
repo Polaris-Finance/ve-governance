@@ -86,6 +86,8 @@ interface IVotingEscrowCore is
     /// @notice Get the raw locked balance for `_tokenId`
     function locked(uint256 _tokenId) external view returns (LockedBalance memory);
 
+    function ownerOf(uint256 _tokenId) external view returns (address);
+
     /// @notice Deposit `_value` tokens for `msg.sender`
     /// @param _value Amount to deposit
     /// @param _duration For how long the tokens are locked in the NFT
