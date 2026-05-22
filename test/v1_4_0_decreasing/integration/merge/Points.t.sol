@@ -226,7 +226,7 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         {
             int256 bias;
 
-            if (_mergeTime >= toLockEnd) {
+            if (mergeWeekTs >= toLockEnd) {
                 bias = biasFPCapped(_lock1Amount, maxTime) + biasFPCapped(_lock2Amount, maxTime);
             } else {
                 bias =
@@ -235,7 +235,7 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             }
 
             int256 slope = 0;
-            if (_mergeTime < toLockEnd) {
+            if (mergeWeekTs < toLockEnd) {
                 slope = slopeFP(_lock1Amount) + slopeFP(_lock2Amount);
             }
 

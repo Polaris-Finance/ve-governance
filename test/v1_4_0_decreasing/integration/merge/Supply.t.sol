@@ -179,8 +179,8 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             bias = 0;
         } else {
             bias =
-                biasFP(_lock1Amount, currentTs - fromLockWeekTs) +
-                biasFP(_lock2Amount, currentTs - toLockWeekTs);
+                biasFPCapped(_lock1Amount, currentTs - fromLockWeekTs) +
+                biasFPCapped(_lock2Amount, currentTs - toLockWeekTs);
         }
 
         assertTotalSupply(currentTs, bias);

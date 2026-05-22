@@ -54,13 +54,15 @@ contract TestDecreasingCurveLogic is CurveBase {
         escrow.checkpoint(1, _getEmptyLockedBalance(), _lockedBalanceToDecreasing(100, 3 weeks));
     }
 
-    function testCannotMergeIfNonMatureWithDifferentStartDates() public {
+    function testCanCheckpointWithDifferentStartDates() public {
         vm.warp(2 weeks + 1 hours);
 
         LockedBalanceDecreasing memory first = _lockedBalanceToDecreasing(100, 2 weeks);
         LockedBalanceDecreasing memory second = _lockedBalanceToDecreasing(200, 2 weeks + 1 hours);
 
-        vm.expectRevert(abi.encodeWithSelector(InvalidLocks.selector, 1, first, second));
+        // The escrow is responsible for ensuring valid lock transitions (e.g. via canMerge).
+        // The curve itself allows checkpointing with different start dates to support
+        // increaseUnlockTime and other legitimate operations.
         escrow.checkpoint(1, first, second);
     }
 

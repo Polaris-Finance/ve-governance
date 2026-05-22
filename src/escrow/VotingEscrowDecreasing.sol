@@ -321,100 +321,207 @@ contract VotingEscrowDecreasing is
         return _createLockFor(_value, _duration, _to);
     }
 
-    struct NewLockVars {
-        uint256 maxTime;
-        uint256 checkpointInterval;
-        uint256 startTime;
-        uint256 virtualStartTime;
-        uint256 newTokenId;
-    }
-
     /// @dev Deposit `_value` tokens for `_to` starting at next deposit interval
     /// @param _value Amount to deposit
     /// @param _duration For how long the tokens are locked in the NFT
     /// @param _to Address to deposit
     function _createLockFor(uint256 _value, uint256 _duration, address _to) internal returns (uint256) {
-        NewLockVars memory vars;
-        if (_value == 0) revert ZeroAmount();
+        _requireNonZeroAmount(_value);
         if (_value < minDeposit) revert AmountTooSmall();
-        vars.maxTime = IEscrowCurve(curve).maxTime();
-        if(_duration > vars.maxTime) revert DurationTooLong();
-        vars.checkpointInterval = IClock(clock).checkpointInterval();
-        if(_duration < vars.checkpointInterval) revert DurationTooShort();
-        if (_duration > _duration / vars.checkpointInterval * vars.checkpointInterval) revert DurationNotMultipleOfInterval();
 
         // query the duration lib to get the last time we could deposit
-        vars.startTime = IClock(clock).nextCheckpointTs();
+        uint256 effectiveStart = IClock(clock).nextCheckpointTs();
         // To keep LinearDecreasingCurve simple, we create a virtual timestamp <= current timestamp,
         // so that it seems that all locks were created with max duration
-        vars.virtualStartTime = _getVirtualStartTime(vars.startTime, _duration, vars.maxTime);
+        // Inside it checks duration is correct
+        uint256 virtualStart = _getVirtualStart(effectiveStart, _duration);
 
         // increment the total locked supply and get the new tokenId
         totalLocked += _value;
-        vars.newTokenId = ++lastLockId;
+        uint256 newTokenId = ++lastLockId;
 
         // write the lock and checkpoint the voting power
         LockedBalanceDecreasing memory lock = LockedBalanceDecreasing(
-            LockedBalance(_value.toUint208(), vars.virtualStartTime.toUint48()),
-            vars.startTime
+            LockedBalance(_value.toUint208(), virtualStart.toUint48()),
+            effectiveStart
         );
-        _locked[vars.newTokenId] = lock;
+        _locked[newTokenId] = lock;
 
         // we don't allow edits in this implementation, so only the new lock is used
-        _checkpoint(vars.newTokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), lock);
+        _checkpoint(newTokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), lock);
 
+        _transferLockedTokens(_value);
+
+        // Update `_to`'s delegate power.
+        _moveDelegateVotes(address(0), _to, newTokenId, lock);
+
+        // mint the NFT before and emit the event to complete the lock
+        IERC721EMB(lockNFT).mint(_to, newTokenId);
+
+        emit Deposit(_to, newTokenId, effectiveStart, virtualStart, _duration, _value, totalLocked);
+
+        return newTokenId;
+    }
+
+    function getVirtualStart(uint256 _effectiveStart, uint256 _duration) external view returns(uint256) {
+        uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs(_effectiveStart);
+        return _getVirtualStart(nextEffectiveStart, _duration);
+    }
+
+    // @dev: All params here are multiples of checkpointInterval, so the result will be too
+    function _getVirtualStart(uint256 _effectiveStart, uint256 _duration) internal view returns(uint256) {
+        uint256 maxTime = IEscrowCurve(curve).maxTime();
+        _checkDuration(_duration, maxTime);
+        // To keep LinearDecreasingCurve simple, we create a virtual timestamp <= current timestamp,
+        // so that it seems that all locks were created with max duration
+        return _effectiveStart + _duration - maxTime;
+    }
+
+    // TODO
+    function lockPermanent(uint256 _tokenId) external whenNotPaused {
+        (address sender, address owner) = _checkOwner(_tokenId);
+
+        LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
+        _requireLockExists(newLocked);
+        _requireLockNotPermanent(newLocked);
+        uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
+        _requireLockNotExpired(newLocked, nextEffectiveStart);
+
+        uint256 amount = newLocked.lockedBalance.amount;
+        //permanentLockBalance += amount;
+        newLocked.lockedBalance.start = 0;
+        newLocked.effectiveStart = nextEffectiveStart;
+        _checkpoint(_tokenId, _locked[_tokenId], newLocked);
+        _locked[_tokenId] = newLocked;
+
+        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, newLocked.lockedBalance);
+
+        emit LockPermanent(sender, _tokenId, amount, nextEffectiveStart);
+    }
+
+    // TODO
+    function unlockPermanent(uint256 _tokenId) external whenNotPaused {
+        (address sender, address owner) = _checkOwner(_tokenId);
+
+        // TODO: if (voted[_tokenId]) revert AlreadyVoted();
+        LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
+        _requireLockPermanent(newLocked);
+
+        uint256 amount = newLocked.lockedBalance.amount;
+        //permanentLockBalance -= amount;
+        // query the duration lib to get the last time we could deposit
+        uint256 effectiveStart = IClock(clock).nextCheckpointTs();
+        newLocked.lockedBalance.start = uint48(effectiveStart);
+        newLocked.effectiveStart = effectiveStart;
+
+        _checkpoint(_tokenId, _locked[_tokenId], newLocked);
+        _locked[_tokenId] = newLocked;
+
+        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, newLocked.lockedBalance);
+
+        emit UnlockPermanent(sender, _tokenId, amount, effectiveStart);
+    }
+
+    // TODO
+    function increaseAmount(uint256 _tokenId, uint256 _value) external whenNotPaused {
+        (,address owner) = _checkOwner(_tokenId);
+        _requireNonZeroAmount(_value);
+        LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
+        _requireLockExists(newLocked);
+        _requireLockNotExpired(newLocked);
+
+        uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
+        newLocked.lockedBalance.amount += _value.toUint208();
+        newLocked.effectiveStart = nextEffectiveStart;
+        // increment the total locked supply
+        totalLocked += _value;
+
+        // TODO: if (newLocked.isPermanent) permanentLockBalance += _value;
+        _checkpoint(_tokenId, _locked[_tokenId], newLocked);
+        _locked[_tokenId] = newLocked;
+
+        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, newLocked.lockedBalance);
+
+        _transferLockedTokens(_value);
+
+        uint256 maxTime = IEscrowCurve(curve).maxTime();
+        uint256 duration = newLocked.lockedBalance.start + maxTime - newLocked.effectiveStart;
+
+        emit Deposit(owner, _tokenId, nextEffectiveStart, newLocked.lockedBalance.start, duration, _value, totalLocked);
+    }
+
+    // TODO
+    function increaseUnlockTime(uint256 _tokenId, uint256 _duration) external whenNotPaused {
+        (,address owner) = _checkOwner(_tokenId);
+        LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
+        _requireLockExists(newLocked);
+        _requireLockNotPermanent(newLocked);
+
+        uint256 maxTime = IEscrowCurve(curve).maxTime();
+        _checkDuration(_duration, maxTime);
+        uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
+        uint256 endTime = _requireLockNotExpired(newLocked, nextEffectiveStart, maxTime);
+        uint256 unlockTime = nextEffectiveStart + _duration;
+        if (unlockTime <= endTime) revert DurationNotIncreased();
+
+        newLocked.effectiveStart = nextEffectiveStart;
+        uint256 virtualStart = _getVirtualStart(nextEffectiveStart, _duration);
+        newLocked.lockedBalance.start = virtualStart.toUint48();
+
+        _checkpoint(_tokenId, _locked[_tokenId], newLocked);
+        _locked[_tokenId] = newLocked;
+
+        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, newLocked.lockedBalance);
+
+        emit Deposit(owner, _tokenId, nextEffectiveStart, virtualStart, _duration, newLocked.lockedBalance.amount, totalLocked);
+    }
+
+    function isPermanent(uint256 _tokenId) external view returns (bool) {
+        LockedBalanceDecreasing memory locked_ = _locked[_tokenId];
+        return locked_.lockedBalance.amount > 0 && locked_.lockedBalance.start == 0;
+    }
+
+    function _requireLockExists(LockedBalanceDecreasing memory locked_) internal pure {
+        if (locked_.lockedBalance.amount == 0) revert NoLockFound();
+    }
+
+    function _requireLockNotExpired(LockedBalanceDecreasing memory _lock) internal view returns (uint256) {
+        uint256 maxTime = IEscrowCurve(curve).maxTime();
+        uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
+        return _requireLockNotExpired(_lock, nextEffectiveStart, maxTime);
+    }
+
+    function _requireLockNotExpired(LockedBalanceDecreasing memory _lock, uint256 _nextEffectiveStart) internal view returns (uint256) {
+        uint256 maxTime = IEscrowCurve(curve).maxTime();
+        return _requireLockNotExpired(_lock, _nextEffectiveStart, maxTime);
+    }
+
+    function _requireLockNotExpired(LockedBalanceDecreasing memory _lock, uint256 _nextEffectiveStart, uint256 _maxTime) internal pure returns (uint256) {
+        uint256 endTime = _lock.effectiveStart + _maxTime;
+        if (endTime <= _nextEffectiveStart) revert LockExpired();
+
+        return endTime;
+    }
+
+    function _requireLockPermanent(LockedBalanceDecreasing memory _lock) internal pure {
+        if (_lock.lockedBalance.start > 0) revert NotPermanentLock();
+    }
+
+    function _requireLockNotPermanent(LockedBalanceDecreasing memory _lock) internal pure {
+        if (_lock.lockedBalance.start == 0) revert PermanentLock();
+    }
+
+    function _transferLockedTokens(uint256 _value) internal {
         uint256 balanceBefore = IERC20(token).balanceOf(address(this));
 
         // transfer the tokens into the contract
         IERC20(token).safeTransferFrom(_msgSender(), address(this), _value);
 
         // we currently don't support tokens that adjust balances on transfer
-        if (IERC20(token).balanceOf(address(this)) != balanceBefore + _value)
+        if (IERC20(token).balanceOf(address(this)) != balanceBefore + _value) {
             revert TransferBalanceIncorrect();
-
-        // Update `_to`'s delegate power.
-        _moveDelegateVotes(address(0), _to, vars.newTokenId, lock);
-
-        // mint the NFT before and emit the event to complete the lock
-        IERC721EMB(lockNFT).mint(_to, vars.newTokenId);
-
-        emit Deposit(_to, vars.newTokenId, vars.startTime, vars.virtualStartTime, _duration, _value, totalLocked);
-
-        return vars.newTokenId;
+        }
     }
-
-    function getVirtualStartTime(uint256 _startTime, uint256 _duration) external view returns(uint256) {
-        uint256 startTime = IClock(clock).nextCheckpointTs(_startTime);
-        uint256 maxTime = IEscrowCurve(curve).maxTime();
-        uint256 checkpointInterval = IClock(clock).checkpointInterval();
-        if(_duration > maxTime) revert DurationTooLong();
-        if(_duration < checkpointInterval) revert DurationTooShort();
-        if (_duration > _duration / checkpointInterval * checkpointInterval) revert DurationNotMultipleOfInterval();
-        return _getVirtualStartTime(startTime, _duration, maxTime);
-    }
-
-    // @dev: All params here are multiples of checkpointInterval, so the result will be too
-    function _getVirtualStartTime(uint256 _startTime, uint256 _duration, uint256 _maxTime) internal view returns(uint256) {
-        // To keep LinearDecreasingCurve simple, we create a virtual timestamp <= current timestamp,
-        // so that it seems that all locks were created with max duration
-        return _startTime + _duration - _maxTime;
-    }
-
-    // TODO
-    function lockPermanent(uint256 _tokenId) external whenNotPaused {
-        _checkOwner(_tokenId);
-    }
-    // TODO
-    function unlockPermanent(uint256 _tokenId) external whenNotPaused {
-        _checkOwner(_tokenId);
-    }
-    // TODO
-    function increaseAmount(uint256 _tokenId, uint256 _value) external whenNotPaused {}
-    // TODO
-    function increaseUnlockTime(uint256 _tokenId, uint256 _duration) external whenNotPaused {
-        _checkOwner(_tokenId);
-    }
-
 
     /// @inheritdoc IMerge
     function merge(uint256 _from, uint256 _to) public whenNotPaused {
@@ -450,18 +557,18 @@ contract VotingEscrowDecreasing is
             IDelegateMoveVoteRecipient.TokenLock(ownerFrom, _to, oldLockedTo.lockedBalance)
         );
 
-        uint256 startTime = IClock(clock).nextCheckpointTs();
+        uint256 effectiveStart = IClock(clock).nextCheckpointTs();
 
         // Update for `_from`.
         IERC721EMB(lockNFT).burn(_from);
         _locked[_from] = LockedBalanceDecreasing(LockedBalance(0, 0), 0);
-        _checkpoint(_from, oldLockedFrom, LockedBalanceDecreasing(LockedBalance(0, oldLockedFrom.lockedBalance.start), startTime));
+        _checkpoint(_from, oldLockedFrom, LockedBalanceDecreasing(LockedBalance(0, oldLockedFrom.lockedBalance.start), effectiveStart));
 
         // update for `_to`.
         uint208 newLockedAmount = oldLockedFrom.lockedBalance.amount + oldLockedTo.lockedBalance.amount;
         LockedBalanceDecreasing memory newOldLockedTo = LockedBalanceDecreasing(
             LockedBalance(newLockedAmount, oldLockedTo.lockedBalance.start),
-            startTime
+            effectiveStart
         );
         _checkpoint(_to, oldLockedTo, newOldLockedTo);
         _locked[_to] = newOldLockedTo;
@@ -492,7 +599,7 @@ contract VotingEscrowDecreasing is
 
     /// @inheritdoc ISplit
     function split(uint256 _from, uint256 _value) public whenNotPaused returns (uint256) {
-        if (_value == 0) revert ZeroAmount();
+        _requireNonZeroAmount(_value);
 
         (address sender, address owner) = _checkOwner(_from);
 
@@ -508,11 +615,11 @@ contract VotingEscrowDecreasing is
             revert AmountTooSmall();
         }
 
-        uint256 startTime = IClock(clock).nextCheckpointTs();
+        uint256 effectiveStart = IClock(clock).nextCheckpointTs();
         // update for `_from`.
         LockedBalanceDecreasing memory newFromLocked = LockedBalanceDecreasing(
             LockedBalance(amount1, locked_.lockedBalance.start),
-            startTime
+            effectiveStart
         );
         _checkpoint(_from, locked_, newFromLocked);
         _locked[_from] = newFromLocked;
@@ -531,7 +638,7 @@ contract VotingEscrowDecreasing is
 
         // update for `newTokenId`.
         locked_.lockedBalance.amount = amount2;
-        locked_.effectiveStart = startTime;
+        locked_.effectiveStart = effectiveStart;
         _locked[newTokenId] = locked_;
         _checkpoint(newTokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), locked_);
         IERC721EMB(lockNFT).mint(owner, newTokenId);
@@ -554,6 +661,17 @@ contract VotingEscrowDecreasing is
         if (!isApprovedOrOwner(sender, _tokenId)) revert NotApprovedOrOwner();
 
         return (sender, owner);
+    }
+
+    function _requireNonZeroAmount(uint256 _amount) internal pure {
+        if (_amount == 0) revert ZeroAmount();
+    }
+
+    function _checkDuration(uint256 _duration, uint256 _maxTime) internal view {
+        uint256 checkpointInterval = IClock(clock).checkpointInterval();
+        if(_duration > _maxTime) revert DurationTooLong();
+        if(_duration < checkpointInterval) revert DurationTooShort();
+        if (_duration > _duration / checkpointInterval * checkpointInterval) revert DurationNotMultipleOfInterval();
     }
 
     /// @notice Record per-user data to checkpoints. Used by VotingEscrow system.
@@ -645,7 +763,7 @@ contract VotingEscrowDecreasing is
         IEscrowIVotesAdapter(ivotesAdapter).moveDelegateVotes(_from, _to, _tokenId, _lockedBalanceDecreasing.lockedBalance);
     }
 
-    function updateVotingPower(address _from, address _to) public whenNotPaused {
+    function updateVotingPower(address _from, address _to) external whenNotPaused {
         if (msg.sender != ivotesAdapter) revert OnlyIVotesAdapter();
 
         IAddressGaugeVoter(voter).updateVotingPower(_from, _to);

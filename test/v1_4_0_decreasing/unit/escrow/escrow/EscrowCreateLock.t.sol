@@ -90,7 +90,7 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
 
         // start of current week
         uint256 startTime = weekStartTs(_time);
-        uint256 virtualStartTime = escrow.getVirtualStartTime(startTime, _duration);
+        uint256 virtualStartTime = escrow.getVirtualStart(startTime, _duration);
 
         vm.startPrank(_depositor);
         {

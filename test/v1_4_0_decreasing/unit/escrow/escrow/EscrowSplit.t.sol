@@ -162,4 +162,23 @@ contract TestEscrowSplit is EscrowBase {
         );
         escrow.split(from, splitVal);
     }
+
+    function test_splitPermanentLock_bothResultingLocksArePermanent() public {
+        escrow.enableSplit();
+
+        uint256 tokenId = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        escrow.lockPermanent(tokenId);
+        assertTrue(escrow.isPermanent(tokenId));
+
+        uint256 splitValue = getFlooredAmount(Lock_1_Amount / 2);
+        escrow.split(tokenId, splitValue);
+
+        assertTrue(escrow.isPermanent(tokenId));
+        assertTrue(escrow.isPermanent(tokenId + 1));
+
+        vm.warp(block.timestamp + 1 weeks);
+
+        assertTrue(escrow.isPermanent(tokenId));
+        assertTrue(escrow.isPermanent(tokenId + 1));
+    }
 }

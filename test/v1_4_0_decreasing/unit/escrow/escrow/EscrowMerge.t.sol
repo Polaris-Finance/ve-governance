@@ -214,4 +214,38 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
         );
         escrow.merge(from, to);
     }
+
+    function test_cannotMergePermanentToNonPermanent() public {
+        uint256 permanent = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        escrow.lockPermanent(permanent);
+        assertTrue(escrow.isPermanent(permanent));
+
+        vm.warp(block.timestamp + 1 weeks);
+        uint256 nonPermanent = escrow.createLock(Lock_2_Amount, MAX_TIME);
+
+        vm.expectRevert(abi.encodeWithSelector(CannotMerge.selector, permanent, nonPermanent));
+        escrow.merge(permanent, nonPermanent);
+
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.expectRevert(abi.encodeWithSelector(CannotMerge.selector, permanent, nonPermanent));
+        escrow.merge(permanent, nonPermanent);
+    }
+
+    function test_cannotMergeNonPermanentToPermanent() public {
+        uint256 nonPermanent = escrow.createLock(Lock_1_Amount, MAX_TIME);
+
+        vm.warp(block.timestamp + 1 weeks);
+        uint256 permanent = escrow.createLock(Lock_2_Amount, MAX_TIME);
+        escrow.lockPermanent(permanent);
+        assertTrue(escrow.isPermanent(permanent));
+
+        vm.expectRevert(abi.encodeWithSelector(CannotMerge.selector, nonPermanent, permanent));
+        escrow.merge(nonPermanent, permanent);
+
+        vm.warp(block.timestamp + 1 weeks);
+
+        vm.expectRevert(abi.encodeWithSelector(CannotMerge.selector, nonPermanent, permanent));
+        escrow.merge(nonPermanent, permanent);
+    }
 }
