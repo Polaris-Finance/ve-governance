@@ -215,9 +215,9 @@ contract EscrowBase is
         uint256 latestIndex = curve.globalPointLatestIndex();
         assertEq(latestIndex, _expectedLatestIndex);
         GlobalPoint memory p = curve.globalPointHistory(latestIndex);
-        assertEq(p.writtenTs, _writtenTs);
         assertEq(p.bias, _biasFP.toUint256());
         assertEq(p.slope, _slopeFP);
+        assertEq(p.writtenTs, _writtenTs);
     }
 
     function assertTotalSupply(uint256 _t, int256 _amountFP) internal view {

@@ -122,7 +122,7 @@ abstract contract DelegationHelper is IEscrowIVotesAdapter, Pausable, UUPSUpgrad
     }
 
     /// @inheritdoc IDelegateMoveVoteRecipient
-    /// @dev This is called on `transfer`, `withdraw` and `createLock`.
+    /// @dev This is called on `transfer` and `createLock`
     /// @notice Assumes that: if this is called on transfer, then it can only be called if _from and _to are different.
     function moveDelegateVotes(
         address _from,
@@ -164,6 +164,25 @@ abstract contract DelegationHelper is IEscrowIVotesAdapter, Pausable, UUPSUpgrad
 
         if (fromDelegatee != toDelegatee) {
             IVotingEscrow(escrow).updateVotingPower(fromDelegatee, toDelegatee);
+        }
+    }
+
+    /// @dev This is called on modifications of locks (duration, amount or permanent state)
+    function updateDelegateVotes(
+        address _owner,
+        uint256 _tokenId,
+        IVotingEscrow.LockedBalance memory _locked
+    ) external virtual whenNotPaused onlyEscrow {
+        address delegatee = delegates(_owner);
+
+        // undelegated src and recipient, no balances to update
+        if (delegatee == address(0)) {
+            return;
+        }
+
+        if (tokenIsDelegated(_tokenId)) {
+            (int256 bias, int256 slope) = _getBiasAndSlope(delegatee, _locked, _positive);
+            _checkpoint(bias, slope, delegatee);
         }
     }
 

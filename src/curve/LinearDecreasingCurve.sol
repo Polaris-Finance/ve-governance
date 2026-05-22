@@ -126,6 +126,10 @@ contract LinearDecreasingCurve is
         return amount.toInt256() * SHARED_CONSTANT_COEFFICIENT;
     }
 
+    function _getConstantCoeffUint(uint256 amount) internal view virtual returns (uint256) {
+        return amount * SHARED_CONSTANT_COEFFICIENT.toUint256();
+    }
+
     /// @return The coefficients of the linear curve, for the given amount
     /// @dev The coefficients are returned in the order [constant, linear]
     function _getCoefficients(uint256 amount) internal view virtual returns (int256[2] memory) {
@@ -172,6 +176,33 @@ contract LinearDecreasingCurve is
         if (bias < 0) bias = 0;
 
         return bias.toUint256();
+    }
+
+    function _getBiasSlopeAndEnd(
+        uint256 _nextEffectiveStart,
+        uint256 _start,
+        uint256 _amount
+    ) internal view returns (uint256, int256, uint256) {
+        uint256 amount = getFlooredAmount(_amount);
+        uint256 bias;
+        int256 slope;
+        uint256 end;
+        if (_start > 0) { // Non permanent lock
+            (bias, slope) = _getBiasAndSlope(
+                _nextEffectiveStart - _start,
+                amount
+            );
+            end = _start + maxTime();
+            if (end <= _nextEffectiveStart) {
+                slope = 0;
+            }
+        } else { // permanent lock
+            bias = _getConstantCoeffUint(_amount);
+            slope = 0;
+            end = 0;
+        }
+
+        return (bias, slope, end);
     }
 
     function _getBiasAndSlope(
@@ -253,27 +284,27 @@ contract LinearDecreasingCurve is
 
     /// @notice Record user data to checkpoints. Used by VotingEscrow system.
     /// @param _tokenId NFT token ID.
-    /// @param _fromLocked The locked from which we're moving.
+    /// @param _oldLocked The locked from which we're moving.
     /// @param _newLocked New locked amount / end lock time for the user
     function _checkpoint(
         uint256 _tokenId,
-        IVotingEscrow.LockedBalanceDecreasing memory _fromLocked,
+        IVotingEscrow.LockedBalanceDecreasing memory _oldLocked,
         IVotingEscrow.LockedBalanceDecreasing memory _newLocked
     ) internal {
         // this implementation doesn't yet support manual checkpointing
         if (_tokenId == 0) revert InvalidTokenId();
 
-        if (_newLocked.lockedBalance.start < _fromLocked.lockedBalance.start) {
+        // If new lock has start zero it means it is becoming permanent
+        if (_oldLocked.lockedBalance.start > _newLocked.lockedBalance.start && _newLocked.lockedBalance.start > 0) {
             revert InvalidCheckpoint();
         }
 
         uint256 _globalPointLatestIndex = globalPointLatestIndex;
 
-        // Get the slope and bias for `_newLocked`...
-        (uint256 newLockBias, int256 newLockSlope) = _getBiasAndSlope(
-             _newLocked.effectiveStart - _newLocked.lockedBalance.start,
-             getFlooredAmount(_newLocked.lockedBalance.amount)
-        );
+        // Get the slope, bias and end for `_newLocked`...
+        // newLocked could be ended in case of merge, when a token is already mature, in that case we make slope zero
+        (uint256 newLockedBias, int256 newLockedSlope, uint256 newLockedEnd) =
+            _getBiasSlopeAndEnd(_newLocked.effectiveStart, _newLocked.lockedBalance.start, _newLocked.lockedBalance.amount);
 
         GlobalPoint memory lastPoint = GlobalPoint({
             bias: 0,
@@ -300,8 +331,7 @@ contract LinearDecreasingCurve is
                     dSlope = slopeChanges[t_i];
                 }
 
-                //int256 newBias = lastPoint.bias.toInt256() + lastPoint.slope * (t_i - lastPointCheckpoint).toInt256();
-                // Note: We assume _newLocked.effectiveStart >= _newLocked.effectiveStart
+                // Note: We assume _newLocked.effectiveStart >= lastPointCheckpoint
                 lastPoint.bias = _getBias(t_i - lastPointCheckpoint, lastPoint.bias.toInt256(), lastPoint.slope);
 
                 lastPoint.slope -= dSlope;
@@ -320,77 +350,50 @@ contract LinearDecreasingCurve is
             }
         }
 
-        uint256 _maxTime = maxTime();
-        uint256 newLockedEnd = _newLocked.lockedBalance.start + _maxTime;
-        uint256 fromLockedEnd = _fromLocked.lockedBalance.start + _maxTime;
-
-        // The following condition is true if merging non-mature locks with different start dates.
-        // current version of ve-governance is built around the assumption that merge can only
-        // occur if tokens are either mature or have the same start dates. Even though `escrow`
-        // does this check before calling `checkpoint` on curve, it's still a safety measure to repeat
-        // the check in case the code of checkpoint might be called by another contract in the future.
-        if (
-            _fromLocked.lockedBalance.start != 0 &&
-            _newLocked.lockedBalance.start != 0 &&
-            _fromLocked.lockedBalance.start != _newLocked.lockedBalance.start &&
-            (newLockedEnd >= _newLocked.effectiveStart || fromLockedEnd >= _newLocked.effectiveStart)
-        ) {
-            revert InvalidLocks(_tokenId, _fromLocked, _newLocked);
-        }
-
-        // newLocked could be ended in case of merge, when
-        // a token is already mature.
-        if (newLockedEnd <= _newLocked.effectiveStart) {
-            newLockSlope = 0;
-        }
-
-        (uint256 oldLockBias, int256 oldLockSlope) = (0, 0);
-
-        if (_fromLocked.lockedBalance.amount > 0) {
-            (oldLockBias, oldLockSlope) = _getBiasAndSlope(
-                _newLocked.effectiveStart - _fromLocked.lockedBalance.start,
-                getFlooredAmount(_fromLocked.lockedBalance.amount)
-            );
-
-            // In case fromLocked already ended, its slope would already
+        uint256 oldLockedBias;
+        int256 oldLockedSlope;
+        uint256 oldLockedEnd;
+        if (_oldLocked.lockedBalance.amount > 0) {
+            // In case oldLocked already ended, its slope would already
             // be subtracted from `lastPoint.slope` in the above for loop.
             // So we make this 0 to not subtract double times.
-            if (fromLockedEnd <= _newLocked.effectiveStart) {
-                oldLockSlope = 0;
-            }
+            (oldLockedBias, oldLockedSlope, oldLockedEnd) =
+                _getBiasSlopeAndEnd(_newLocked.effectiveStart, _oldLocked.lockedBalance.start, _oldLocked.lockedBalance.amount);
         }
 
-        {
+        // The escrow already enforces merge restrictions via `canMerge`. `increaseUnlockTime`
+        // legitimately changes the start date of a non-mature lock, so we must not block it here.
+        // Since `checkpoint` can only be called by the escrow (`OnlyEscrow`), this is safe.
+        // So we don't check start times here, as opposed to original code in LinearIncreasingCurve.
 
-            int256 lastPointNewBias = lastPoint.bias.toInt256() + newLockBias.toInt256() - oldLockBias.toInt256();
+        {
+            int256 lastPointNewBias = lastPoint.bias.toInt256() + newLockedBias.toInt256() - oldLockedBias.toInt256();
             if (lastPointNewBias < 0) {
                 lastPoint.bias = 0;
             } else {
                 lastPoint.bias = lastPointNewBias.toUint256();
             }
-            lastPoint.slope += (newLockSlope - oldLockSlope);
+            lastPoint.slope += (newLockedSlope - oldLockedSlope);
             if (lastPoint.slope > 0) lastPoint.slope = 0;
         }
 
+        // store new slope change
+        slopeChanges[newLockedEnd] += newLockedSlope;
         uint256 tokenLatestIndex = tokenPointLatestIndex[_tokenId];
-
         // The token point already exists..
         if (tokenLatestIndex > 0) {
-            if (fromLockedEnd > _newLocked.effectiveStart) {
-                slopeChanges[fromLockedEnd] -= oldLockSlope;
+            if (oldLockedEnd > _newLocked.effectiveStart) {
+                slopeChanges[oldLockedEnd] -= oldLockedSlope;
             }
         }
-
-        // store new slope change
-        slopeChanges[newLockedEnd] += newLockSlope;
 
         // Record the latest global point.
         _storeLatestGlobalPoint(lastPoint, _globalPointLatestIndex);
 
         // Create new token point and store.
         TokenPoint memory tNew;
-        tNew.bias = newLockBias;
-        tNew.slope = newLockSlope;
+        tNew.bias = newLockedBias;
+        tNew.slope = newLockedSlope;
         tNew.writtenTs = _newLocked.effectiveStart;
 
         // Record the latest token point.
@@ -536,6 +539,10 @@ contract LinearDecreasingCurve is
         if (bias < 0) bias = 0;
 
         return uint256(bias / 1e18);
+    }
+
+    function _isPermanent(IVotingEscrow.LockedBalanceDecreasing memory _locked) internal pure returns (bool) {
+        return _locked.lockedBalance.amount > 0 && _locked.lockedBalance.start == 0;
     }
 
     /*///////////////////////////////////////////////////////////////

@@ -39,6 +39,10 @@ interface IVotingEscrowCoreErrors {
     error AddressAlreadySet();
     error CannotExit();
     error CannotWithdrawUntilExpiry();
+    error LockExpired();
+    error PermanentLock();
+    error NotPermanentLock();
+    error DurationNotIncreased();
 }
 
 interface IVotingEscrowCoreEvents {
@@ -60,6 +64,9 @@ interface IVotingEscrowCoreEvents {
         uint256 ts,
         uint256 newTotalLocked
     );
+
+    event LockPermanent(address indexed depositor, uint256 indexed tokenId, uint256 amount, uint256 timestamp);
+    event UnlockPermanent(address indexed depositor, uint256 indexed tokenId, uint256 amount, uint256 timestamp);
 }
 
 interface IVotingEscrowCore is
@@ -92,15 +99,16 @@ interface IVotingEscrowCore is
     /// @return TokenId of created veNFT
     function createLockFor(uint256 _value, uint256 _duration, address _to) external returns (uint256);
 
-    /// @param _startTime Timestamp when the lock is created
+    /// @param _start Timestamp when the lock is created
     /// @param _duration For how long the tokens are locked in the NFT
-    /// @return Timestamp in the past that would make a max time (4 years) lock equivalent to one created on `_startTime` for `_duration`
-    function getVirtualStartTime(uint256 _startTime, uint256 _duration) external view returns(uint256);
+    /// @return Timestamp in the past that would make a max time (4 years) lock equivalent to one created on `_start` for `_duration`
+    function getVirtualStart(uint256 _start, uint256 _duration) external view returns(uint256);
 
     function lockPermanent(uint256 _tokenId) external;
     function unlockPermanent(uint256 _tokenId) external;
     function increaseAmount(uint256 _tokenId, uint256 _value) external;
     function increaseUnlockTime(uint256 _tokenId, uint256 _duration) external;
+    function isPermanent(uint256 _tokenId) external view returns (bool);
 
     /// @notice Withdraw all tokens for `_tokenId`
     function withdraw(uint256 _tokenId) external;
