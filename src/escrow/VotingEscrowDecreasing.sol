@@ -295,6 +295,8 @@ contract VotingEscrowDecreasing is
 
     /// @notice Checks if the NFT is currently voting. We require the user to reset their votes if so.
     function isVoting(uint256 _tokenId) external view returns (bool) {
+        if (voter == address(0)) return false;
+
         // If token doesn't exist, it reverts.
         address owner = IERC721EMB(lockNFT).ownerOf(_tokenId);
 
@@ -768,6 +770,8 @@ contract VotingEscrowDecreasing is
     }
 
     function updateVotingPower(address _from, address _to) external whenNotPaused {
+        if (voter == address(0)) return;
+
         if (msg.sender != ivotesAdapter) revert OnlyIVotesAdapter();
 
         IAddressGaugeVoter(voter).updateVotingPower(_from, _to);
