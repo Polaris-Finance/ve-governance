@@ -503,7 +503,7 @@ contract VotingEscrowDecreasing is
     }
 
     function _requireLockNotExpired(LockedBalanceDecreasing memory _lock, uint256 _nextEffectiveStart, uint256 _maxTime) internal pure returns (uint256) {
-        uint256 endTime = _lock.effectiveStart + _maxTime;
+        uint256 endTime = _lock.lockedBalance.start + _maxTime;
         if (endTime <= _nextEffectiveStart) revert LockExpired();
 
         return endTime;
