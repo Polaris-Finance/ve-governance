@@ -383,7 +383,6 @@ contract VotingEscrowDecreasing is
         return _effectiveStart + _duration - maxTime;
     }
 
-    // TODO
     function lockPermanent(uint256 _tokenId) external whenNotPaused {
         (address sender, address owner) = _checkOwner(_tokenId);
 
@@ -405,7 +404,6 @@ contract VotingEscrowDecreasing is
         emit LockPermanent(sender, _tokenId, amount, nextEffectiveStart);
     }
 
-    // TODO
     function unlockPermanent(uint256 _tokenId) external whenNotPaused {
         (address sender, address owner) = _checkOwner(_tokenId);
 
@@ -428,7 +426,6 @@ contract VotingEscrowDecreasing is
         emit UnlockPermanent(sender, _tokenId, amount, effectiveStart);
     }
 
-    // TODO
     function increaseAmount(uint256 _tokenId, uint256 _value) external whenNotPaused {
         (,address owner) = _checkOwner(_tokenId);
         _requireNonZeroAmount(_value);
@@ -456,7 +453,6 @@ contract VotingEscrowDecreasing is
         emit Deposit(owner, _tokenId, nextEffectiveStart, newLocked.lockedBalance.start, duration, _value, totalLocked);
     }
 
-    // TODO
     function increaseUnlockTime(uint256 _tokenId, uint256 _duration) external whenNotPaused {
         (,address owner) = _checkOwner(_tokenId);
         LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
@@ -507,6 +503,13 @@ contract VotingEscrowDecreasing is
         if (endTime <= _nextEffectiveStart) revert LockExpired();
 
         return endTime;
+    }
+
+    function isLockExpired(uint256 _tokenId) external view returns (bool) {
+        uint256 maxTime = IEscrowCurve(curve).maxTime();
+        uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
+        uint256 endTime = _locked[_tokenId].lockedBalance.start + maxTime;
+        return endTime <= nextEffectiveStart;
     }
 
     function _requireLockPermanent(LockedBalanceDecreasing memory _lock) internal pure {

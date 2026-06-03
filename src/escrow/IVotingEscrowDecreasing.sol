@@ -106,6 +106,8 @@ interface IVotingEscrowCore is
     /// @return Timestamp in the past that would make a max time (4 years) lock equivalent to one created on `_start` for `_duration`
     function getVirtualStart(uint256 _start, uint256 _duration) external view returns(uint256);
 
+    function isLockExpired(uint256 _tokenId) external view returns (bool);
+
     function lockPermanent(uint256 _tokenId) external;
     function unlockPermanent(uint256 _tokenId) external;
     function increaseAmount(uint256 _tokenId, uint256 _value) external;

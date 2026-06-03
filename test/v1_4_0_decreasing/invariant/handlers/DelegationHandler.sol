@@ -2,8 +2,6 @@ pragma solidity ^0.8.17;
 
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-import {EscrowBase} from "../../base/EscrowBase.sol";
-
 import {console2 as console} from "forge-std/console2.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
 import {DAO} from "@aragon/osx/core/dao/DAO.sol";
@@ -41,6 +39,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     IERC721EMB private lockNft;
     VotingEscrow private escrow;
     EscrowIVotesAdapter private ivotesAdapter;
+    Clock private clock;
     Curve private curve;
     GaugeVoter private voter;
 
@@ -81,6 +80,8 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     // cause removal of the token id.
     EnumerableSet.UintSet internal activeTokenIds;
 
+    mapping(uint256 => bool) public isPermanentLock;
+
     // Track how much ERC20 token value is stored inside the escrow.
     uint256 public totalLocked;
 
@@ -88,6 +89,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     struct Contracts {
         address escrow;
         address curve;
+        address clock;
         address lockNft;
         address ivotesAdapter;
         address voter;
@@ -105,6 +107,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     ) {
         escrow = VotingEscrow(_c.escrow);
         curve = Curve(_c.curve);
+        clock = Clock(_c.clock);
         lockNft = IERC721EMB(_c.lockNft);
         token = MockERC20(escrow.token());
         ivotesAdapter = EscrowIVotesAdapter(_c.ivotesAdapter);
@@ -130,6 +133,9 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
 
         vm.prank(_admin);
         voter.setEnableUpdateVotingPowerHook(true);
+
+        // Make sure we can create locks of any duration
+        vm.warp(block.timestamp + _maxTime);
     }
 
     function vote(
@@ -278,11 +284,14 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     function createLock(
         uint256 _jumpSeed,
         uint256 _value,
+        uint256 _duration,
         uint256 _senderSeed
     ) external adjustTimestamp(_jumpSeed) returns (uint256 tokenId) {
         _value = _bound(_value, escrow.minDeposit(), type(uint96).max);
         _value = getFlooredAmount(_value);
         vm.assume(_value > 0);
+        _duration = _bound(_duration, 1 weeks, maxTime);
+        _duration = getFlooredDuration(_duration);
         address msgSender = _getAddress(_senderSeed);
         address delegatee = ivotesAdapter.delegates(msgSender);
 
@@ -293,7 +302,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         token.mint(msgSender, _value);
         vm.startPrank(msgSender);
         token.approve(address(escrow), _value);
-        tokenId = escrow.createLock(_value, maxTime);
+        tokenId = escrow.createLock(_value, _duration);
         vm.stopPrank();
 
         // Ghost state variables
@@ -304,6 +313,108 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         _updateDelegationState(tokenId, msgSender, Action.ADD, address(0));
 
         return tokenId;
+    }
+
+    function lockPermanent(
+        uint256 _jumpSeed,
+        uint256 _ownerTokenId,
+        uint256 _senderSeed
+    ) external adjustTimestamp(_jumpSeed) {
+        address msgSender = _getAddress(_senderSeed);
+        address delegatee = ivotesAdapter.delegates(msgSender);
+        _transitionIfTooOld(delegatee);
+
+        if (ownedTokens[msgSender].length() == 0) return;
+
+        _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
+        uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
+        vm.assume(!isPermanentLock[tokenId]);
+        vm.assume(!escrow.isLockExpired(tokenId));
+
+        vm.startPrank(msgSender);
+        escrow.lockPermanent(tokenId);
+        vm.stopPrank();
+
+        // Ghost state variables
+        isPermanentLock[tokenId] = true;
+    }
+
+    function unlockPermanent(
+        uint256 _jumpSeed,
+        uint256 _ownerTokenId,
+        uint256 _senderSeed
+    ) external adjustTimestamp(_jumpSeed) {
+        address msgSender = _getAddress(_senderSeed);
+        address delegatee = ivotesAdapter.delegates(msgSender);
+        _transitionIfTooOld(delegatee);
+
+        if (ownedTokens[msgSender].length() == 0) return;
+
+        _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
+        uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
+        vm.assume(isPermanentLock[tokenId]);
+
+        vm.startPrank(msgSender);
+        escrow.unlockPermanent(tokenId);
+        vm.stopPrank();
+
+        // Ghost state variables
+        isPermanentLock[tokenId] = false;
+    }
+
+    function increaseAmount(
+        uint256 _jumpSeed,
+        uint256 _ownerTokenId,
+        uint256 _value,
+        uint256 _senderSeed
+    ) external adjustTimestamp(_jumpSeed) {
+        _value = _bound(_value, escrow.minDeposit(), type(uint96).max);
+        _value = getFlooredAmount(_value);
+        vm.assume(_value > 0);
+        address msgSender = _getAddress(_senderSeed);
+        address delegatee = ivotesAdapter.delegates(msgSender);
+        _transitionIfTooOld(delegatee);
+
+        if (ownedTokens[msgSender].length() == 0) return;
+
+        _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
+        uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
+        vm.assume(!escrow.isLockExpired(tokenId));
+
+        // mint tokens to sender and approve to escrow
+        // so escrow can transfer it from sender.
+        token.mint(msgSender, _value);
+        vm.startPrank(msgSender);
+        token.approve(address(escrow), _value);
+        escrow.increaseAmount(tokenId, _value);
+        vm.stopPrank();
+    }
+
+    function increaseUnlockTime(
+        uint256 _jumpSeed,
+        uint256 _ownerTokenId,
+        uint256 _duration,
+        uint256 _senderSeed
+    ) external adjustTimestamp(_jumpSeed) {
+        address msgSender = _getAddress(_senderSeed);
+        address delegatee = ivotesAdapter.delegates(msgSender);
+        _transitionIfTooOld(delegatee);
+
+        if (ownedTokens[msgSender].length() == 0) return;
+
+        _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
+        uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
+        vm.assume(!isPermanentLock[tokenId]);
+        vm.assume(!escrow.isLockExpired(tokenId));
+        uint256 virtualStart = escrow.locked(tokenId).start;
+        uint256 currentDuration = virtualStart + maxTime - clock.nextCheckpointTs();
+        vm.assume(currentDuration + 1 weeks <= maxTime);
+        _duration = _bound(_duration, currentDuration + 1 weeks, maxTime);
+        _duration = getFlooredDuration(_duration);
+
+        vm.startPrank(msgSender);
+        escrow.increaseUnlockTime(tokenId, _duration);
+        vm.stopPrank();
     }
 
     function merge(
@@ -395,6 +506,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         // Ghost state variables
         ownedTokens[msgSender].add(newTokenId);
         activeTokenIds.add(newTokenId);
+        if (isPermanentLock[fromId]) isPermanentLock[newTokenId] = true;
 
         // split causes new token id to be minted. If `from` token
         // was delegated, then automatically delegated a newly created token.
@@ -512,6 +624,10 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
 
     function getFlooredAmount(uint256 _amount) internal view returns (uint256) {
         return curve.getFlooredAmount(_amount);
+    }
+
+    function getFlooredDuration(uint256 _duration) internal view returns (uint256) {
+        return _duration / checkpointInterval * checkpointInterval;
     }
 
     function _updateDelegationState(
@@ -682,12 +798,12 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         return actors[_bound(_seedAddr, 0, actors.length - 1)];
     }
 
-    function _assumeNonZeroVotingPower(address _sender) internal {
+    function _assumeNonZeroVotingPower(address _sender) internal view {
         uint256[] memory tokenIds = VotingEscrow(escrow).ownedTokens(_sender);
         _assumeNonZeroVotingPower(tokenIds);
     }
 
-    function _assumeNonZeroVotingPower(uint256[] memory _tokenIds) internal {
+    function _assumeNonZeroVotingPower(uint256[] memory _tokenIds) internal view {
         for (uint256 i = 0; i < _tokenIds.length; i++) {
             vm.assume(escrow.votingPower(_tokenIds[i]) > 0);
         }

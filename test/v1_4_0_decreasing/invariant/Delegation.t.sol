@@ -41,6 +41,7 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
             DelegationHandler.Contracts({
                 escrow: address(escrow),
                 curve: address(curve),
+                clock: address(clock),
                 lockNft: address(nftLock),
                 ivotesAdapter: address(ivotesAdapter),
                 voter: address(voter)
@@ -53,7 +54,7 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
         targetContract(address(h));
 
         {
-            bytes4[] memory selectors = new bytes4[](12);
+            bytes4[] memory selectors = new bytes4[](16);
             selectors[0] = DelegationHandler.createLock.selector;
             selectors[1] = DelegationHandler.merge.selector;
             selectors[2] = DelegationHandler.split.selector;
@@ -66,6 +67,10 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
             selectors[9] = DelegationHandler.transfer.selector;
             selectors[10] = DelegationHandler.checkpointTransition.selector;
             selectors[11] = DelegationHandler.reset.selector;
+            selectors[12] = DelegationHandler.lockPermanent.selector;
+            selectors[13] = DelegationHandler.unlockPermanent.selector;
+            selectors[14] = DelegationHandler.increaseAmount.selector;
+            selectors[15] = DelegationHandler.increaseUnlockTime.selector;
             FuzzSelector memory a = FuzzSelector(address(h), selectors);
 
             targetSelector(a);
@@ -181,6 +186,29 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
             uint256 latestGlobalPointIndex = curve.globalPointLatestIndex();
             writtenTs = curve.globalPointHistory(latestGlobalPointIndex).writtenTs;
             assertEq(writtenTs, (writtenTs / checkpointInterval) * checkpointInterval, "Wrong Curve global checkpoint timestamp");
+        }
+    }
+
+    function invariant_PermanentLocksProperties() public view {
+        uint256[] memory ids = h.getActiveTokenIds();
+        for (uint256 i = 0; i < ids.length; i++) {
+            uint256 tokenId = ids[i];
+
+            uint256 start = escrow.locked(tokenId).start;
+            uint256 amount = escrow.locked(tokenId).amount;
+            uint256 latestPointIndex = curve.tokenPointLatestIndex(tokenId);
+            int256 slope = curve.tokenPointHistory(tokenId, latestPointIndex).slope;
+            if (h.isPermanentLock(tokenId)) {
+                assertEq(slope, 0, "Permanent locks should have slope zero");
+                assertEq(start, 0, "Permanent locks should have start zero");
+                assertGt(amount, 0, "Permanent locks should have non zero amount");
+            } else {
+                // Only in case of not expired locks
+                if (!escrow.isLockExpired(tokenId)) {
+                    assertLt(slope, 0, "Non permanent locks should have negative slope");
+                }
+                assertGt(start, 0, "Non permanent locks should have non zero start");
+            }
         }
     }
 }
