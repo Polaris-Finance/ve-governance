@@ -71,7 +71,7 @@ contract RewardsDistributorTest is EscrowBase {
     }
 
     function testClaim() public {
-        skipToNextEpoch(1 days);
+        _skipToNextEpoch(1 days);
         uint256 startTime = weekStartTs(block.timestamp);
 
         vm.startPrank(address(owner));
@@ -79,13 +79,13 @@ contract RewardsDistributorTest is EscrowBase {
         vm.stopPrank();
 
         IVotingEscrow.LockedBalance memory locked = escrow.locked(tokenId);
-        assertEq(convert(locked.amount), TOKEN_1M);
+        assertEq(_convert(locked.amount), TOKEN_1M);
         assertEq(uint256(locked.start), startTime);
         assertEq(escrow.isPermanent(tokenId), false);
 
         assertEq(curve.tokenPointLatestIndex(tokenId), 1);
         IEscrowCurve.TokenPoint memory userPoint = curve.tokenPointHistory(tokenId, 1);
-        assertEq(convertSlope(userPoint.slope), TOKEN_1M / MAXTIME); // TOKEN_1M / MAXTIME
+        assertEq(_convertSlope(userPoint.slope), TOKEN_1M / MAXTIME); // TOKEN_1M / MAXTIME
         assertEq(userPoint.bias, getFlooredAmount(TOKEN_1M) * 1e18);
         assertEq(userPoint.writtenTs, startTime);
 
@@ -94,20 +94,20 @@ contract RewardsDistributorTest is EscrowBase {
         vm.stopPrank();
 
         locked = escrow.locked(tokenId2);
-        assertEq(convert(locked.amount), TOKEN_1M);
+        assertEq(_convert(locked.amount), TOKEN_1M);
         assertEq(uint256(locked.start), startTime);
         assertEq(escrow.isPermanent(tokenId2), false);
 
         assertEq(curve.tokenPointLatestIndex(tokenId2), 1);
         userPoint = curve.tokenPointHistory(tokenId2, 1);
-        assertEq(convertSlope(userPoint.slope), TOKEN_1M / MAXTIME); // TOKEN_1M / MAXTIME
+        assertEq(_convertSlope(userPoint.slope), TOKEN_1M / MAXTIME); // TOKEN_1M / MAXTIME
         assertEq(userPoint.bias, getFlooredAmount(TOKEN_1M) * 1e18);
         assertEq(userPoint.writtenTs, startTime);
         // Let's move to next epoch so that locks are eligible for rewards
         vm.warp(block.timestamp + 1 weeks);
 
         // epoch 3
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         // The first epoch is claimable only by the setup lock
         // The setup lock is only 1 vs 1M the next 2, so its share is almost negligible
         uint256 expectedRewards = 2999998514423812611; // Approx: REWARD_AMOUNT / 2 / 2.
@@ -116,7 +116,7 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(distributor.claimable(setupTokenId), 6000002971152374777); // Approx REWARD_AMOUNT / 2
 
         // epoch 4
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         // Approx: Each new epoch, we add approx REWARD_AMOUNT / 2 ~= 6 tokens
         // Setup lock barely increases the rewards, as its dwarfed by the other 2 tokens
         expectedRewards = 8999995543410791095;
@@ -125,14 +125,14 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(distributor.claimable(setupTokenId), 6000008913178417807);
 
         // epoch 5
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         expectedRewards = 14999992572538475786;
         assertEq(distributor.claimable(tokenId), expectedRewards);
         assertEq(distributor.claimable(tokenId2), expectedRewards);
         assertEq(distributor.claimable(setupTokenId), 6000014854923048424);
 
         // epoch 6
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         expectedRewards = 20999989601808239427;
         assertEq(distributor.claimable(tokenId), expectedRewards);
         assertEq(distributor.claimable(tokenId2), expectedRewards);
@@ -147,19 +147,19 @@ contract RewardsDistributorTest is EscrowBase {
     }
 
     function testClaimWithPermanentLocks() public {
-        triggerRewardsAndSkipToNextEpoch(1 days); // epoch 1, ts: 1296000, next checkpoint: 1814400
+        _triggerRewardsAndSkipToNextEpoch(1 days); // epoch 1, ts: 1296000, next checkpoint: 1814400
 
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
         escrow.lockPermanent(tokenId);
 
         IVotingEscrow.LockedBalance memory locked = escrow.locked(tokenId);
-        assertEq(convert(locked.amount), TOKEN_1M);
+        assertEq(_convert(locked.amount), TOKEN_1M);
         assertEq(uint256(locked.start), 0);
         assertEq(escrow.isPermanent(tokenId), true);
 
         assertEq(curve.tokenPointLatestIndex(tokenId), 1);
         IEscrowCurve.TokenPoint memory userPoint = curve.tokenPointHistory(tokenId, 1);
-        assertEq(convertSlope(userPoint.slope), 0);
+        assertEq(_convertSlope(userPoint.slope), 0);
         assertEq(userPoint.bias, TOKEN_1M * 1e18);
         assertEq(userPoint.writtenTs, 1814400);
 
@@ -169,33 +169,33 @@ contract RewardsDistributorTest is EscrowBase {
         vm.stopPrank();
 
         locked = escrow.locked(tokenId2);
-        assertEq(convert(locked.amount), TOKEN_1M);
+        assertEq(_convert(locked.amount), TOKEN_1M);
         assertEq(uint256(locked.start), 0);
         assertEq(escrow.isPermanent(tokenId2), true);
 
         assertEq(curve.tokenPointLatestIndex(tokenId2), 1);
         userPoint = curve.tokenPointHistory(tokenId2, 1);
-        assertEq(convertSlope(userPoint.slope), 0);
+        assertEq(_convertSlope(userPoint.slope), 0);
         assertEq(userPoint.bias, TOKEN_1M * 1e18);
         assertEq(userPoint.writtenTs, 1814400);
 
         // epoch 3 - no rewards, locks were not active yet
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         assertEq(distributor.claimable(tokenId), 0);
         assertEq(distributor.claimable(tokenId2), 0);
 
         // epoch 4
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         assertEq(distributor.claimable(tokenId), 5999997028847625222); // ~half of REWARD_AMOUNT
         assertEq(distributor.claimable(tokenId2), 5999997028847625222);
 
         // epoch 5
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         assertEq(distributor.claimable(tokenId), 11999994072118313117); // ~half of REWARD_AMOUNT * 2
         assertEq(distributor.claimable(tokenId2), 11999994072118313117);
 
         // epoch 6
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         uint256 expectedRewards = 17999991129812063754; // ~half of REWARD_AMOUNT * 3
         assertEq(distributor.claimable(tokenId), expectedRewards);
         assertEq(distributor.claimable(tokenId2), expectedRewards);
@@ -216,7 +216,7 @@ contract RewardsDistributorTest is EscrowBase {
     }
 
     function testClaimWithBothLocks() public {
-        triggerRewardsAndSkipToNextEpoch(1 days); // epoch 1, ts: 1296000, next checkpoint: 1814400
+        _triggerRewardsAndSkipToNextEpoch(1 days); // epoch 1, ts: 1296000, next checkpoint: 1814400
 
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
         escrow.lockPermanent(tokenId);
@@ -227,22 +227,22 @@ contract RewardsDistributorTest is EscrowBase {
 
         // expect permanent lock to earn more rewards
         // epoch 3 - no rewards, locks were not active yet
-        triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 1's rewards
+        _triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 1's rewards
         assertEq(distributor.claimable(tokenId), 0);
         assertEq(distributor.claimable(tokenId2), 0);
 
         // epoch 4
-        triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 2's rewards
+        _triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 2's rewards
         assertEq(distributor.claimable(tokenId), 5999997028847625308);
         assertEq(distributor.claimable(tokenId2), 5999997028847625137);
 
         // epoch 5
-        triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 3's rewards
+        _triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 3's rewards
         assertEq(distributor.claimable(tokenId), 12014451889177152303);
         assertEq(distributor.claimable(tokenId2), 11985536240810183081);
 
         // epoch 6
-        triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 4's rewards
+        _triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 4's rewards
         assertEq(distributor.claimable(tokenId), 18043434425620540312);
         assertEq(distributor.claimable(tokenId2), 17956547791326230651);
 
@@ -258,17 +258,17 @@ contract RewardsDistributorTest is EscrowBase {
 
     function testClaimWithLockCreatedMoreThan50EpochsLater() public {
         for (uint256 i = 0; i < 55; i++) {
-            triggerRewardsAndSkipToNextEpoch(0);
+            _triggerRewardsAndSkipToNextEpoch(0);
         }
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
         uint256 tokenId2 = escrow.createLock(TOKEN_1M, MAXTIME);
 
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         assertEq(distributor.tokenLastBalance(), 672e18); // 56 times rewards
         assertEq(distributor.claimable(tokenId), 5999997793270042441); // ~half of REWARD_AMOUNT
         assertEq(distributor.claimable(tokenId2), 5999997793270042441);
 
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         uint256 expectedRewards = 11999995590372300572; // ~half of 2 * REWARD_AMOUNT
         assertEq(distributor.claimable(tokenId), expectedRewards);
         assertEq(distributor.claimable(tokenId2), expectedRewards);
@@ -284,35 +284,35 @@ contract RewardsDistributorTest is EscrowBase {
     function testClaimWithIncreaseAmountOnEpochFlip() public {
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
         uint256 tokenId2 = escrow.createLock(TOKEN_1M, MAXTIME);
-        skipToNextEpoch(0); // So that tokens above capture rewards
+        _skipToNextEpoch(0); // So that tokens above capture rewards
 
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         assertEq(distributor.claimable(tokenId), 5999997014424562619);
         assertEq(distributor.claimable(tokenId2), 5999997014424562619);
 
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         uint256 expectedRewards = 11999994028918801868;
         assertEq(distributor.claimable(tokenId), expectedRewards);
         assertEq(distributor.claimable(tokenId2), expectedRewards);
         // making lock larger on flip should not impact claimable
         escrow.increaseAmount(tokenId, TOKEN_1M);
-        triggerRewards();
+        _triggerRewards();
         assertEq(distributor.claimable(tokenId), expectedRewards);
         assertEq(distributor.claimable(tokenId2), expectedRewards);
     }
 
     function testClaimWithExpiredNFT() public {
         vm.warp(block.timestamp + MAXTIME); // To allow for virtual start time
-        triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
+        _triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
         // test reward claims to expired NFTs are distributed as unlocked rewardsToken
         uint256 tokenId = escrow.createLock(TOKEN_1M, WEEK * 4);
 
-        triggerRewardsAndSkipToNextEpoch(1);
+        _triggerRewardsAndSkipToNextEpoch(1);
         // accrued rewards, error coming from previous weeks rounding
         assertEq(distributor.claimable(tokenId), REWARD_AMOUNT + 64);
 
         for (uint256 i = 0; i < 4; i++) {
-            triggerRewardsAndSkipToNextEpoch(1);
+            _triggerRewardsAndSkipToNextEpoch(1);
         }
 
         // accrued rewards, error coming from previous weeks rounding
@@ -335,18 +335,18 @@ contract RewardsDistributorTest is EscrowBase {
 
     function testClaimManyWithExpiredNFT() public {
         vm.warp(block.timestamp + MAXTIME); // To allow for virtual start time
-        triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
+        _triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
         // test claim many with one expired nft and one normal nft
         uint256 tokenId = escrow.createLock(TOKEN_1M, WEEK * 4);
         uint256 tokenId2 = escrow.createLock(TOKEN_1M, MAXTIME);
 
-        triggerRewardsAndSkipToNextEpoch(1);
+        _triggerRewardsAndSkipToNextEpoch(1);
         assertEq(distributor.claimable(tokenId), 226415094339622642);
         // error coming from previous weeks rounding
         assertApproxEqAbs(distributor.claimable(tokenId2), REWARD_AMOUNT - 226415094339622642, 63);
 
         for (uint256 i = 0; i < 4; i++) {
-            triggerRewardsAndSkipToNextEpoch(1);
+            _triggerRewardsAndSkipToNextEpoch(1);
         }
 
         assertGt(distributor.claimable(tokenId), 0); // accrued rewards
@@ -374,17 +374,17 @@ contract RewardsDistributorTest is EscrowBase {
     function testCanClaimDuringFirstHour() public {
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
         uint256 tokenId2 = escrow.createLock(TOKEN_1M * 8, MAXTIME);
-        skipToNextEpoch(0); // So that tokens above capture rewards
+        _skipToNextEpoch(0); // So that tokens above capture rewards
 
-        triggerRewardsAndSkipToNextEpoch(2 hours); // epoch 1
+        _triggerRewardsAndSkipToNextEpoch(2 hours); // epoch 1
 
         assertEq(distributor.claimable(tokenId), 1333333185897452186); // REWARD_AMOUNT / 9
         assertEq(distributor.claimable(tokenId2), 10666665487179617655); // REWARD_AMOUNT * 8 / 9
 
-        triggerRewardsAndSkipToNextEpoch(1 hours); // epoch 3
+        _triggerRewardsAndSkipToNextEpoch(1 hours); // epoch 3
         distributor.claim(tokenId);
 
-        skipAndRoll(1 hours);
+        _skipAndRoll(1 hours);
 
         // Nothing else to claim
         uint256 pre = rewardsToken.balanceOf(address(this));
@@ -401,13 +401,13 @@ contract RewardsDistributorTest is EscrowBase {
 
     function testClaimBeforeLockedEnd() public {
         vm.warp(block.timestamp + MAXTIME); // To allow for virtual start time
-        triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
+        _triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
 
         uint256 duration = WEEK * 12;
         vm.prank(address(owner));
         uint256 tokenId = escrow.createLock(TOKEN_1M, duration);
 
-        triggerRewardsAndSkipToNextEpoch(1);
+        _triggerRewardsAndSkipToNextEpoch(1);
         assertGt(distributor.claimable(tokenId), 0);
 
         IVotingEscrow.LockedBalance memory locked = escrow.locked(tokenId);
@@ -422,13 +422,13 @@ contract RewardsDistributorTest is EscrowBase {
 
     function testClaimOnLockedEnd() public {
         vm.warp(block.timestamp + MAXTIME); // To allow for virtual start time
-        triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
+        _triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
 
         uint256 duration = WEEK * 12;
         vm.prank(address(owner));
         uint256 tokenId = escrow.createLock(TOKEN_1M, duration);
 
-        triggerRewardsAndSkipToNextEpoch(1);
+        _triggerRewardsAndSkipToNextEpoch(1);
         assertGt(distributor.claimable(tokenId), 0);
 
         IVotingEscrow.LockedBalance memory locked = escrow.locked(tokenId);
@@ -448,7 +448,7 @@ contract RewardsDistributorTest is EscrowBase {
         uint256 tokenId2 = escrow.createLock(TOKEN_1M, MAX_TIME);
 
         // First rewards before effective start of tokens
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         uint256 claimable1 = distributor.claimable(tokenId);
         uint256 claimable2 = distributor.claimable(tokenId2);
         assertEq(claimable1, 0);
@@ -456,7 +456,7 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(claimable1, claimable2);
 
         // Both tokens accrue some rewards
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         claimable1 = distributor.claimable(tokenId);
         claimable2 = distributor.claimable(tokenId2);
         assertGt(claimable1, 0);
@@ -477,7 +477,7 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(claimable1, claimable2);
 
         // Trigger rewards after merge, now "to" token has more rewards
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
         claimable1 = distributor.claimable(tokenId);
         claimable2 = distributor.claimable(tokenId2);
         assertGt(claimable1, 0);
@@ -499,7 +499,7 @@ contract RewardsDistributorTest is EscrowBase {
     }
 
     function testCheckpointAfterMoreThanFourYears() public {
-        skipToNextEpoch(0);
+        _skipToNextEpoch(0);
 
         vm.prank(address(owner));
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAX_TIME);
@@ -512,7 +512,7 @@ contract RewardsDistributorTest is EscrowBase {
 
         vm.warp(block.timestamp + MAXTIME);
 
-        triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
+        _triggerRewardsAndSkipToNextEpoch(0); // this will dilute during the last 4 years
 
         // As the claim is capped at 1 year, we need to call it several times to make sure we claim everything
         for (uint256 i = 0; i < 5; i++) {
@@ -527,7 +527,7 @@ contract RewardsDistributorTest is EscrowBase {
     }
 
     function testRewardsNotLostIfArrivedAfterClaim() public {
-        skipToNextEpoch(0);
+        _skipToNextEpoch(0);
 
         vm.prank(address(owner));
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAX_TIME);
@@ -535,7 +535,7 @@ contract RewardsDistributorTest is EscrowBase {
         // Wait until lock is effective
         vm.warp(block.timestamp + 1 weeks);
 
-        triggerRewardsAndSkipToNextEpoch(1 days);
+        _triggerRewardsAndSkipToNextEpoch(1 days);
 
         uint256 initialBalance = rewardsToken.balanceOf(owner);
 
@@ -548,20 +548,84 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(distributor.claimable(tokenId), 0, "There should be nothing to claim");
 
         // New rewards arrive immediately after
-        triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
 
         // Last rewards can be claimed
         assertGt(distributor.claimable(tokenId), 0, "There should be rewards to be claimed");
     }
 
+    function testApprovedCanClaim() public {
+        _skipToNextEpoch(1 days);
+        uint256 startTime = weekStartTs(block.timestamp);
+
+        vm.startPrank(address(owner));
+        uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
+        // Approve token to another account
+        nftLock.approve(owner2, tokenId);
+        vm.stopPrank();
+
+        // Let's move to next epoch so that lock is eligible for rewards
+        vm.warp(block.timestamp + 1 weeks);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        uint256 preClaimedBalance1 = rewardsToken.balanceOf(owner);
+        uint256 preClaimedBalance2 = rewardsToken.balanceOf(owner2);
+        // Approved claims
+        vm.prank(owner2);
+        distributor.claim(tokenId);
+        uint256 postClaimedBalance1 = rewardsToken.balanceOf(owner);
+        uint256 postClaimedBalance2 = rewardsToken.balanceOf(owner2);
+        // Approved balance increased, owner one did not
+        assertEq(postClaimedBalance1, preClaimedBalance1);
+        assertGt(postClaimedBalance2, preClaimedBalance2);
+    }
+
+    function testThirdPartyCannotClaim() public {
+        _skipToNextEpoch(1 days);
+        uint256 startTime = weekStartTs(block.timestamp);
+
+        vm.startPrank(address(owner));
+        uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
+        vm.stopPrank();
+
+        // Let's move to next epoch so that lock is eligible for rewards
+        vm.warp(block.timestamp + 1 weeks);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        uint256 preClaimedBalance1 = rewardsToken.balanceOf(owner);
+        uint256 preClaimedBalance2 = rewardsToken.balanceOf(owner2);
+        uint256 preClaimedBalance3 = rewardsToken.balanceOf(owner3);
+        // Another account claims
+        vm.prank(owner2);
+        vm.expectRevert(IRewardsDistributor.NotApprovedOrOwner.selector);
+        distributor.claim(tokenId);
+
+        // Approve token to that account, a third one still cannot claim
+        vm.prank(owner);
+        nftLock.approve(owner2, tokenId);
+        vm.expectRevert(IRewardsDistributor.NotApprovedOrOwner.selector);
+        vm.prank(owner3);
+        distributor.claim(tokenId);
+
+        uint256 postClaimedBalance1 = rewardsToken.balanceOf(owner);
+        uint256 postClaimedBalance2 = rewardsToken.balanceOf(owner2);
+        uint256 postClaimedBalance3 = rewardsToken.balanceOf(owner2);
+        // All balances the same, as claiming didn't happen
+        assertEq(postClaimedBalance1, preClaimedBalance1);
+        assertEq(postClaimedBalance2, preClaimedBalance2);
+        assertEq(postClaimedBalance2, preClaimedBalance2);
+    }
+
 
     // Helper functions
 
-    function triggerRewards() internal {
-        triggerRewards(REWARD_AMOUNT);
+    function _triggerRewards() internal {
+        _triggerRewards(REWARD_AMOUNT);
     }
 
-    function triggerRewards(uint256 _amount) internal {
+    function _triggerRewards(uint256 _amount) internal {
         rewardsToken.mint(address(distributor), _amount);
         vm.prank(rewardsSender);
         distributor.checkpointToken();
@@ -570,30 +634,30 @@ contract RewardsDistributorTest is EscrowBase {
     /// @dev Helper utility to forward time to next week
     ///      note epoch requires at least one second to have
     ///      passed into the new epoch
-    function skipToNextEpoch(uint256 offset) public {
+    function _skipToNextEpoch(uint256 offset) internal {
         uint256 ts = block.timestamp;
         uint256 nextEpoch = ts - (ts % (1 weeks)) + (1 weeks);
         vm.warp(nextEpoch + offset);
         vm.roll(block.number + 1);
     }
 
-    function triggerRewardsAndSkipToNextEpoch(uint256 offset) internal {
-        triggerRewards(REWARD_AMOUNT);
-        skipToNextEpoch(offset);
+    function _triggerRewardsAndSkipToNextEpoch(uint256 offset) internal {
+        _triggerRewards(REWARD_AMOUNT);
+        _skipToNextEpoch(offset);
     }
 
-    function skipAndRoll(uint256 timeOffset) public {
+    function _skipAndRoll(uint256 timeOffset) internal {
         skip(timeOffset);
         vm.roll(block.number + 1);
     }
 
     /// @dev Used to convert IVotingEscrow int128s to uint256
     ///      These values are always positive
-    function convert(uint208 _amount) internal pure returns (uint256) {
+    function _convert(uint208 _amount) internal pure returns (uint256) {
         return uint256(uint128(_amount));
     }
 
-    function convertSlope(int256 _slope) internal pure returns (uint256) {
+    function _convertSlope(int256 _slope) internal pure returns (uint256) {
         return uint256(-_slope) / 1e18;
     }
 }

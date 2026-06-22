@@ -57,7 +57,10 @@ contract RewardsDistributor is IRewardsDistributor {
         rewardsSender = _rewardsSender;
     }
 
-    function _checkpointToken() internal {
+    /// @inheritdoc IRewardsDistributor
+    function checkpointToken() external {
+        if (msg.sender != rewardsSender) revert NotRewardsSender();
+
         uint256 tokenBalance = IERC20(token).balanceOf(address(this));
         // TODO: Move to invariant tests
         assert(tokenBalance > tokenLastBalance);
@@ -91,14 +94,8 @@ contract RewardsDistributor is IRewardsDistributor {
         emit CheckpointToken(currentWeekTime, toDistribute);
     }
 
-    /// @inheritdoc IRewardsDistributor
-    function checkpointToken() external {
-        if (msg.sender != rewardsSender) revert NotRewardsSender();
-        _checkpointToken();
-    }
-
     function _claim(uint256 _tokenId, uint256 _lastTokenWeekTime) internal returns (uint256) {
-        _requireOwner(_tokenId);
+        _requireApprovedOrOwner(_tokenId);
         (uint256 toDistribute, uint256 epochStart, uint256 weekCursor) = _claimable(_tokenId, _lastTokenWeekTime);
         timeCursorOf[_tokenId] = weekCursor;
         if (toDistribute == 0) return 0;
@@ -177,8 +174,7 @@ contract RewardsDistributor is IRewardsDistributor {
         return true;
     }
 
-    function _requireOwner(uint256 _tokenId) internal view {
-        address owner = ve.ownerOf(_tokenId);
-        if (msg.sender != owner) revert NotTokenOwner();
+    function _requireApprovedOrOwner(uint256 _tokenId) internal view {
+        if (!ve.isApprovedOrOwner(msg.sender, _tokenId)) revert NotApprovedOrOwner();
     }
 }

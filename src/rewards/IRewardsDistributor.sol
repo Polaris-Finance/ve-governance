@@ -8,9 +8,7 @@ interface IRewardsDistributor {
     event Claimed(uint256 indexed tokenId, uint256 indexed epochStart, uint256 indexed epochEnd, uint256 amount);
 
     error NotRewardsSender();
-    error NotManagedOrNormalNFT();
-    error UpdatePeriod();
-    error NotTokenOwner();
+    error NotApprovedOrOwner();
 
     /// @notice 7 days in seconds
     function WEEK() external view returns (uint256);
