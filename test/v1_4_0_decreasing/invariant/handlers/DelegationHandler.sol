@@ -388,6 +388,8 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         token.approve(address(escrow), _value);
         escrow.increaseAmount(tokenId, _value);
         vm.stopPrank();
+
+        totalLocked += _value;
     }
 
     function increaseUnlockTime(
