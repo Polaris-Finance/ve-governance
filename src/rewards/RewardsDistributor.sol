@@ -21,7 +21,7 @@ import {IRewardsDistributor} from "./IRewardsDistributor.sol";
 contract RewardsDistributor is IRewardsDistributor {
     using SafeERC20 for IERC20;
     /// @inheritdoc IRewardsDistributor
-    uint256 public constant WEEK = 7 * 86400;
+    uint256 public constant WEEK = 1 weeks;
     // Iterations for the claim loop
     uint256 public constant CLAIM_BATCH_SIZE = 52; // TODO: Review gas amount for this
     // We cap the checkpointing loop to avoid gas issues. It is unlikely that no rewards arrive for more than 4 years,
