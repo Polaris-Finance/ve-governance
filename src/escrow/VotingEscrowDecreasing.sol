@@ -386,20 +386,21 @@ contract VotingEscrowDecreasing is
     function lockPermanent(uint256 _tokenId) external whenNotPaused {
         (address sender, address owner) = _checkOwner(_tokenId);
 
-        LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
-        _requireLockExists(newLocked);
-        _requireLockNotPermanent(newLocked);
+        LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
+        LockedBalanceDecreasing memory newLocked;
+        _requireLockExists(oldLocked);
+        _requireLockNotPermanent(oldLocked);
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
-        _requireLockNotExpired(newLocked, nextEffectiveStart);
+        _requireLockNotExpired(oldLocked, nextEffectiveStart);
 
-        uint256 amount = newLocked.lockedBalance.amount;
-        //permanentLockBalance += amount;
+        uint256 amount = oldLocked.lockedBalance.amount;
+        newLocked.lockedBalance.amount = amount.toUint208();
         newLocked.lockedBalance.start = 0;
         newLocked.effectiveStart = nextEffectiveStart;
         _checkpoint(_tokenId, _locked[_tokenId], newLocked);
         _locked[_tokenId] = newLocked;
 
-        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, newLocked.lockedBalance);
+        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, oldLocked.lockedBalance, newLocked.lockedBalance);
 
         emit LockPermanent(sender, _tokenId, amount, nextEffectiveStart);
     }
@@ -408,20 +409,21 @@ contract VotingEscrowDecreasing is
         (address sender, address owner) = _checkOwner(_tokenId);
 
         // TODO: if (voted[_tokenId]) revert AlreadyVoted();
-        LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
-        _requireLockPermanent(newLocked);
+        LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
+        LockedBalanceDecreasing memory newLocked;
+        _requireLockPermanent(oldLocked);
 
-        uint256 amount = newLocked.lockedBalance.amount;
-        //permanentLockBalance -= amount;
+        uint256 amount = oldLocked.lockedBalance.amount;
         // query the duration lib to get the last time we could deposit
         uint256 effectiveStart = IClock(clock).nextCheckpointTs();
+        newLocked.lockedBalance.amount = amount.toUint208();
         newLocked.lockedBalance.start = uint48(effectiveStart);
         newLocked.effectiveStart = effectiveStart;
 
         _checkpoint(_tokenId, _locked[_tokenId], newLocked);
         _locked[_tokenId] = newLocked;
 
-        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, newLocked.lockedBalance);
+        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, oldLocked.lockedBalance, newLocked.lockedBalance);
 
         emit UnlockPermanent(sender, _tokenId, amount, effectiveStart);
     }
@@ -429,21 +431,22 @@ contract VotingEscrowDecreasing is
     function increaseAmount(uint256 _tokenId, uint256 _value) external whenNotPaused {
         (,address owner) = _checkOwner(_tokenId);
         _requireNonZeroAmount(_value);
-        LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
-        _requireLockExists(newLocked);
-        _requireLockNotExpired(newLocked);
+        LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
+        LockedBalanceDecreasing memory newLocked;
+        _requireLockExists(oldLocked);
+        _requireLockNotExpired(oldLocked);
 
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
-        newLocked.lockedBalance.amount += _value.toUint208();
+        newLocked.lockedBalance.amount = oldLocked.lockedBalance.amount + _value.toUint208();
+        newLocked.lockedBalance.start = oldLocked.lockedBalance.start;
         newLocked.effectiveStart = nextEffectiveStart;
         // increment the total locked supply
         totalLocked += _value;
 
-        // TODO: if (newLocked.isPermanent) permanentLockBalance += _value;
         _checkpoint(_tokenId, _locked[_tokenId], newLocked);
         _locked[_tokenId] = newLocked;
 
-        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, newLocked.lockedBalance);
+        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, oldLocked.lockedBalance, newLocked.lockedBalance);
 
         _transferLockedTokens(_value);
 
@@ -455,27 +458,30 @@ contract VotingEscrowDecreasing is
 
     function increaseUnlockTime(uint256 _tokenId, uint256 _duration) external whenNotPaused {
         (,address owner) = _checkOwner(_tokenId);
-        LockedBalanceDecreasing memory newLocked = _locked[_tokenId];
-        _requireLockExists(newLocked);
-        _requireLockNotPermanent(newLocked);
+        LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
+        LockedBalanceDecreasing memory newLocked;
+        _requireLockExists(oldLocked);
+        _requireLockNotPermanent(oldLocked);
 
         uint256 maxTime = IEscrowCurve(curve).maxTime();
         _checkDuration(_duration, maxTime);
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
-        uint256 endTime = _requireLockNotExpired(newLocked, nextEffectiveStart, maxTime);
+        uint256 endTime = _requireLockNotExpired(oldLocked, nextEffectiveStart, maxTime);
         uint256 unlockTime = nextEffectiveStart + _duration;
         if (unlockTime <= endTime) revert DurationNotIncreased();
 
-        newLocked.effectiveStart = nextEffectiveStart;
+        uint256 amount = oldLocked.lockedBalance.amount;
+        newLocked.lockedBalance.amount = amount.toUint208();
         uint256 virtualStart = _getVirtualStart(nextEffectiveStart, _duration);
         newLocked.lockedBalance.start = virtualStart.toUint48();
+        newLocked.effectiveStart = nextEffectiveStart;
 
         _checkpoint(_tokenId, _locked[_tokenId], newLocked);
         _locked[_tokenId] = newLocked;
 
-        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, newLocked.lockedBalance);
+        IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, oldLocked.lockedBalance, newLocked.lockedBalance);
 
-        emit Deposit(owner, _tokenId, nextEffectiveStart, virtualStart, _duration, newLocked.lockedBalance.amount, totalLocked);
+        emit Deposit(owner, _tokenId, nextEffectiveStart, virtualStart, _duration, amount, totalLocked);
     }
 
     function isPermanent(uint256 _tokenId) external view returns (bool) {

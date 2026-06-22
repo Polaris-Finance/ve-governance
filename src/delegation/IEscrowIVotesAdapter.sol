@@ -58,7 +58,8 @@ interface IDelegateMoveVoteRecipient {
     function updateDelegateVotes(
         address _owner,
         uint256 _tokenId,
-        ILockedBalanceIncreasing.LockedBalance memory _locked
+        ILockedBalanceIncreasing.LockedBalance memory _oldLocked,
+        ILockedBalanceIncreasing.LockedBalance memory _newLocked
     ) external;
 }
 

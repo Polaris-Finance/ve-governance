@@ -171,7 +171,8 @@ abstract contract DelegationHelper is IEscrowIVotesAdapter, Pausable, UUPSUpgrad
     function updateDelegateVotes(
         address _owner,
         uint256 _tokenId,
-        IVotingEscrow.LockedBalance memory _locked
+        IVotingEscrow.LockedBalance memory _oldLocked,
+        IVotingEscrow.LockedBalance memory _newLocked
     ) external virtual whenNotPaused onlyEscrow {
         address delegatee = delegates(_owner);
 
@@ -181,8 +182,9 @@ abstract contract DelegationHelper is IEscrowIVotesAdapter, Pausable, UUPSUpgrad
         }
 
         if (tokenIsDelegated(_tokenId)) {
-            (int256 bias, int256 slope) = _getBiasAndSlope(delegatee, _locked, _positive);
-            _checkpoint(bias, slope, delegatee);
+            (int256 oldBias, int256 oldSlope) = _getBiasAndSlope(delegatee, _oldLocked, _negative);
+            (int256 newBias, int256 newSlope) = _getBiasAndSlope(delegatee, _newLocked, _positive);
+            _checkpoint(oldBias + newBias, oldSlope + newSlope, delegatee);
         }
     }
 

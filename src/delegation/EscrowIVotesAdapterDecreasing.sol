@@ -601,11 +601,13 @@ contract EscrowIVotesAdapterDecreasing is
 
         int256 amount = uint256(_locked.amount).toInt256();
 
-        int256 slope = amount * 1e18 / SHARED_LINEAR_DENOMINATOR;
-        int256 bias = slope *
-            int256(elapsed) +
-            amount *
-            SHARED_CONSTANT_COEFFICIENT;
+        int256 slope;
+        if (_locked.start == 0) { // permanent lock
+            slope = 0;
+        } else {
+            slope = amount * 1e18 / SHARED_LINEAR_DENOMINATOR;
+        }
+        int256 bias = slope * int256(elapsed) + amount * SHARED_CONSTANT_COEFFICIENT;
 
         if (bias < 0) bias = 0;
 
