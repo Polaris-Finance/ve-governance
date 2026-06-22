@@ -444,18 +444,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
             ILockedBalanceIncreasing.LockedBalance memory fromLocked = escrow.locked(fromId);
             ILockedBalanceIncreasing.LockedBalance memory toLocked = escrow.locked(toId);
 
-            // Starts not equal and one of the token is not mature or both.
-            if (!escrow.canMerge(fromLocked, toLocked)) {
-                uint256 fromEnd = fromLocked.start + maxTime;
-                uint256 toEnd = toLocked.start + maxTime;
-
-                // If tokens have different start dates, we can only merge if
-                // they are both mature. So move to time so they are both mature.
-                if (fromEnd >= block.timestamp || toEnd >= block.timestamp) {
-                    uint256 biggerTs = fromEnd > toEnd ? fromEnd : toEnd;
-                    vm.warp(biggerTs + 1);
-                }
-            }
+            vm.assume(escrow.canMerge(fromLocked, toLocked));
 
             _transitionIfTooOld(delegatee);
         }

@@ -596,20 +596,8 @@ contract VotingEscrowDecreasing is
         LockedBalance memory _fromLocked,
         LockedBalance memory _toLocked
     ) public view returns (bool) {
-        uint256 maxTime = IEscrowCurve(curve).maxTime();
-
-        uint256 fromLockedEnd = _fromLocked.start + maxTime;
-        uint256 toLockedEnd = _toLocked.start + maxTime;
-
-        // Tokens either must have the same start dates or both must be mature.
-        if (
-            (_toLocked.start != _fromLocked.start) &&
-            (toLockedEnd >= block.timestamp || fromLockedEnd >= block.timestamp)
-        ) {
-            return false;
-        }
-
-        return true;
+        // Tokens must have the same start dates
+        return _toLocked.start == _fromLocked.start;
     }
 
     /// @inheritdoc ISplit
