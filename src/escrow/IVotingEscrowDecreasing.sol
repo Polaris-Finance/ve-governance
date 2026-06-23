@@ -234,7 +234,7 @@ interface IMerge is ILockedBalanceIncreasing, IMergeEventsAndErrors {
     function canMerge(
         LockedBalance memory _from,
         LockedBalance memory _to
-    ) external view returns (bool);
+    ) external pure returns (bool);
 }
 
 interface ISplitEventsAndErrors {

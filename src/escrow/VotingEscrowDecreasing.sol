@@ -595,7 +595,7 @@ contract VotingEscrowDecreasing is
     function canMerge(
         LockedBalance memory _fromLocked,
         LockedBalance memory _toLocked
-    ) public view returns (bool) {
+    ) public pure returns (bool) {
         // Tokens must have the same start dates
         return _toLocked.start == _fromLocked.start;
     }

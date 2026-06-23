@@ -103,33 +103,6 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         assertTotalSupply(currentTs + 1, 0);
     }
 
-    function test_Merge_WhenMature_DifferentStartDates() public {
-        // 1. total supply at current time must be sum of both token's maxed out values.
-        // 2. total supply at currentTime and `currentTime + X` must be the same(sum of maxed out values of both tokens)
-        uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
-
-        uint256 fromLockWeekStart = weekStartTs(block.timestamp);
-        uint256 fromLockEnd = fromLockWeekStart + maxTime;
-
-        vm.warp(block.timestamp + checkpointInterval);
-        uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
-
-        uint256 toLockWeekStart = weekStartTs(block.timestamp);
-        uint256 toLockEnd = toLockWeekStart + maxTime;
-
-        // we merge after both are mature.
-        vm.warp(toLockEnd + 1 hours);
-        escrow.merge(from, to);
-
-        uint256 currentTs = block.timestamp;
-
-        // 1, 2
-        assertTotalSupply(currentTs - 1, 0);
-        assertTotalSupply(currentTs, 0);
-        assertTotalSupply(currentTs + 1, 0);
-    }
-
-
     function testFuzz_Merge(
         uint184 _lock1Amount,
         uint184 _lock2Amount,

@@ -113,59 +113,6 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         assertEq(slopeChanges(end), totalSlopeFP);
     }
 
-    function test_Merge_WhenMature_DifferentStartDates() public {
-        // 1. on `from` token point, bias and slope must become 0. `start` should stay the same and current timestamp updated.
-        // 2. on `to` token point, bias must be the sum of both token's maxed out values. Slope must be 0 as it's already maxed out.
-        // `start` should stay the same and current timestamp updated.
-        // 3. last global point must have slope 0 and bias as sum of both token's maxed out values.
-        // 4. Since `to`'s end is greater than `from`'s end, and we make `from` to become 0, `to`'s slope change must also include `to`'s slope.
-        uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
-
-        uint256 fromLockWeekStart = weekStartTs(block.timestamp);
-        uint256 fromLockEnd = fromLockWeekStart + maxTime;
-
-        vm.warp(block.timestamp + checkpointInterval);
-        uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
-
-        uint256 toLockWeekStart = weekStartTs(block.timestamp);
-        uint256 toLockEnd = toLockWeekStart + maxTime;
-
-        // we merge after both are mature.
-        vm.warp(toLockEnd + 1 hours);
-        escrow.merge(from, to);
-
-        uint256 mergeTs = weekStartTs(block.timestamp);
-
-        // 1
-        assertTokenPoint(
-            from, // tokenId
-            2, // latestIndex
-            0,
-            0,
-            mergeTs
-        );
-
-        int256 currentTotalBiasFP = biasFPCapped(Lock_1_Amount, fromLockEnd - fromLockWeekStart) +
-            biasFPCapped(Lock_2_Amount, toLockEnd - toLockWeekStart);
-
-        // 2
-        assertTokenPoint(
-            to, // tokenId
-            2, // latestIndex
-            currentTotalBiasFP,
-            0,
-            mergeTs
-        );
-
-        // 3
-        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 1;
-        assertGlobalPoint(lastIndex, currentTotalBiasFP, 0, mergeTs);
-
-        // 4
-        assertEq(slopeChanges(fromLockEnd), slopeFP(Lock_1_Amount));
-        assertEq(slopeChanges(toLockEnd), slopeFP(Lock_2_Amount));
-    }
-
     function testFuzz_Merge(
         uint184 _lock1Amount,
         uint184 _lock2Amount,
@@ -179,18 +126,10 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             _mergeTime
         );
 
-        vm.assume(_toLockTime >= _fromLockTime && _mergeTime >= _toLockTime);
+        vm.assume(_toLockTime == _fromLockTime && _mergeTime >= _toLockTime);
         _lock1Amount = uint184(getFlooredAmount(uint256(_lock1Amount)));
         _lock2Amount = uint184(getFlooredAmount(uint256(_lock2Amount)));
         vm.assume(_lock1Amount > 0 && _lock2Amount > 0);
-
-        // If start dates of locks don't match,
-        // in order to merge, both tokens have to be mature.
-        // So we restrict `_mergeTime` to be greater than
-        // both token's maturity date.
-        if (_fromLockTime != _toLockTime) {
-            vm.assume(_mergeTime > weekStartTs(_toLockTime) + maxTime);
-        }
 
         mintAndApproveEscrow(uint256(_lock1Amount) + uint256(_lock2Amount));
 
