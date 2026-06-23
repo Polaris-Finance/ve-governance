@@ -355,6 +355,34 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
         vm.expectRevert(TransferBalanceIncorrect.selector);
         escrow.createLock(1 ether, MAX_TIME);
     }
+
+    function testIsLockExpiredNonPermanent() public {
+        token.mint(address(this), 1e18);
+        token.approve(address(escrow), 1e18);
+
+        uint256 tokenId = escrow.createLock(1e18, MAX_TIME);
+
+        assertFalse(escrow.isLockExpired(tokenId), "Lock should not be expired");
+
+        vm.warp(block.timestamp + MAX_TIME);
+        assertTrue(escrow.isLockExpired(tokenId), "Lock should be expired");
+    }
+
+    function testIsLockExpiredPermanent() public {
+        token.mint(address(this), 1e18);
+        token.approve(address(escrow), 1e18);
+
+        uint256 tokenId = escrow.createLock(1e18, MAX_TIME);
+        escrow.lockPermanent(tokenId);
+
+        assertFalse(escrow.isLockExpired(tokenId), "Lock should not be expired");
+
+        vm.warp(block.timestamp + MAX_TIME);
+        assertFalse(escrow.isLockExpired(tokenId), "Lock should not be expired even after max time");
+
+        vm.warp(block.timestamp + MAX_TIME);
+        assertFalse(escrow.isLockExpired(tokenId), "Lock should not be expired even after another max time");
+    }
 }
 
 contract ERC721Receiver {

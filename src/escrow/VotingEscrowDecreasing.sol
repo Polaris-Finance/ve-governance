@@ -512,9 +512,13 @@ contract VotingEscrowDecreasing is
     }
 
     function isLockExpired(uint256 _tokenId) external view returns (bool) {
+        uint256 start = _locked[_tokenId].lockedBalance.start;
+        // Permanent locks
+        if (start == 0) return false;
+
         uint256 maxTime = IEscrowCurve(curve).maxTime();
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
-        uint256 endTime = _locked[_tokenId].lockedBalance.start + maxTime;
+        uint256 endTime = start + maxTime;
         return endTime <= nextEffectiveStart;
     }
 
