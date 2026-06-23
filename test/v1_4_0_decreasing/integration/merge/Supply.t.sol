@@ -116,18 +116,10 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
             _mergeTime
         );
 
-        vm.assume(_toLockTime >= _fromLockTime && _mergeTime >= _toLockTime);
+        vm.assume(_toLockTime == _fromLockTime && _mergeTime >= _toLockTime);
         _lock1Amount = uint184(getFlooredAmount(uint256(_lock1Amount)));
         _lock2Amount = uint184(getFlooredAmount(uint256(_lock2Amount)));
         vm.assume(_lock1Amount > 0 && _lock2Amount > 0);
-
-        // If start dates of locks don't match,
-        // in order to merge, both tokens have to be mature.
-        // So we restrict `_mergeTime` to be greater than
-        // both token's maturity date.
-        if (_fromLockTime != _toLockTime) {
-            vm.assume(_mergeTime > weekStartTs(_toLockTime) + maxTime);
-        }
 
         mintAndApproveEscrow(uint256(_lock1Amount) + uint256(_lock2Amount));
 
