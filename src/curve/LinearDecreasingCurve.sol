@@ -198,7 +198,7 @@ contract LinearDecreasingCurve is
                 slope = 0;
             }
         } else { // permanent lock
-            bias = _getConstantCoeffUint(_amount);
+            bias = _getConstantCoeffUint(amount);
             slope = 0;
             end = 0;
         }

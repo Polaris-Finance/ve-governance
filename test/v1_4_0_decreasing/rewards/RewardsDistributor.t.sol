@@ -160,7 +160,7 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(curve.tokenPointLatestIndex(tokenId), 1);
         IEscrowCurve.TokenPoint memory userPoint = curve.tokenPointHistory(tokenId, 1);
         assertEq(_convertSlope(userPoint.slope), 0);
-        assertEq(userPoint.bias, TOKEN_1M * 1e18);
+        assertEq(userPoint.bias, 999999999999999971481600000000000000000000);
         assertEq(userPoint.writtenTs, 1814400);
 
         vm.startPrank(address(owner2));
@@ -176,7 +176,7 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(curve.tokenPointLatestIndex(tokenId2), 1);
         userPoint = curve.tokenPointHistory(tokenId2, 1);
         assertEq(_convertSlope(userPoint.slope), 0);
-        assertEq(userPoint.bias, TOKEN_1M * 1e18);
+        assertEq(userPoint.bias, 999999999999999971481600000000000000000000);
         assertEq(userPoint.writtenTs, 1814400);
 
         // epoch 3 - no rewards, locks were not active yet
@@ -233,18 +233,18 @@ contract RewardsDistributorTest is EscrowBase {
 
         // epoch 4
         _triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 2's rewards
-        assertEq(distributor.claimable(tokenId), 5999997028847625308);
-        assertEq(distributor.claimable(tokenId2), 5999997028847625137);
+        assertEq(distributor.claimable(tokenId), 5999997028847625222);
+        assertEq(distributor.claimable(tokenId2), 5999997028847625222);
 
         // epoch 5
         _triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 3's rewards
-        assertEq(distributor.claimable(tokenId), 12014451889177152303);
-        assertEq(distributor.claimable(tokenId2), 11985536240810183081);
+        assertEq(distributor.claimable(tokenId), 12014451889177152131);
+        assertEq(distributor.claimable(tokenId2), 11985536240810183252);
 
         // epoch 6
         _triggerRewardsAndSkipToNextEpoch(0); // distribute epoch 4's rewards
-        assertEq(distributor.claimable(tokenId), 18043434425620540312);
-        assertEq(distributor.claimable(tokenId2), 17956547791326230651);
+        assertEq(distributor.claimable(tokenId), 18043434425620540055);
+        assertEq(distributor.claimable(tokenId2), 17956547791326230907);
 
         uint256 pre = rewardsToken.balanceOf(address(this));
 
@@ -253,7 +253,7 @@ contract RewardsDistributorTest is EscrowBase {
         distributor.claim(tokenId);
 
         uint256 post = rewardsToken.balanceOf(address(this));
-        assertEq(post - pre, 18043434425620540312);
+        assertEq(post - pre, 18043434425620540055);
     }
 
     function testClaimWithLockCreatedMoreThan50EpochsLater() public {
