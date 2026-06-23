@@ -451,7 +451,11 @@ contract VotingEscrowDecreasing is
         _transferLockedTokens(_value);
 
         uint256 maxTime = IEscrowCurve(curve).maxTime();
-        uint256 duration = newLocked.lockedBalance.start + maxTime - newLocked.effectiveStart;
+        uint256 duration;
+        // Duration only makes sense for non permanen locks. Anyway this is only for the event, and we are not changing duration here.
+        if (newLocked.lockedBalance.start > 0) {
+            duration = newLocked.lockedBalance.start + maxTime - newLocked.effectiveStart;
+        }
 
         emit Deposit(owner, _tokenId, nextEffectiveStart, newLocked.lockedBalance.start, duration, _value, totalLocked);
     }
@@ -466,6 +470,7 @@ contract VotingEscrowDecreasing is
         uint256 maxTime = IEscrowCurve(curve).maxTime();
         _checkDuration(_duration, maxTime);
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
+        // We already checked lock is not permanent, so end time makes sense
         uint256 endTime = _requireLockNotExpired(oldLocked, nextEffectiveStart, maxTime);
         uint256 unlockTime = nextEffectiveStart + _duration;
         if (unlockTime <= endTime) revert DurationNotIncreased();
@@ -505,21 +510,26 @@ contract VotingEscrowDecreasing is
     }
 
     function _requireLockNotExpired(LockedBalanceDecreasing memory _lock, uint256 _nextEffectiveStart, uint256 _maxTime) internal pure returns (uint256) {
-        uint256 endTime = _lock.lockedBalance.start + _maxTime;
-        if (endTime <= _nextEffectiveStart) revert LockExpired();
+        uint256 start = _lock.lockedBalance.start;
+        if (_isLockExpired(start, _nextEffectiveStart, _maxTime)) revert LockExpired();
 
-        return endTime;
+        // return value is only used for non permanent locks
+        return start + _maxTime;
     }
 
     function isLockExpired(uint256 _tokenId) external view returns (bool) {
         uint256 start = _locked[_tokenId].lockedBalance.start;
-        // Permanent locks
-        if (start == 0) return false;
-
-        uint256 maxTime = IEscrowCurve(curve).maxTime();
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
-        uint256 endTime = start + maxTime;
-        return endTime <= nextEffectiveStart;
+        uint256 maxTime = IEscrowCurve(curve).maxTime();
+        return _isLockExpired(start, nextEffectiveStart, maxTime);
+    }
+
+    function _isLockExpired(uint256 _start, uint256 _nextEffectiveStart, uint256 _maxTime) internal pure returns (bool) {
+        // Permanent locks
+        if (_start == 0) return false;
+
+        uint256 endTime = _start + _maxTime;
+        return endTime <= _nextEffectiveStart;
     }
 
     function _requireLockPermanent(LockedBalanceDecreasing memory _lock) internal pure {
