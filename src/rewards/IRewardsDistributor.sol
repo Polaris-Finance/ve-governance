@@ -44,14 +44,34 @@ interface IRewardsDistributor {
     /// @return The amount of rebases claimable for the given token ID
     function claimable(uint256 tokenId) external view returns (uint256);
 
+    /// @notice Returns the amount of rebases claimable for a given token ID
+    /// @dev Allows claiming of rebases up to 50 epochs old
+    /// @param tokenId The token ID to check
+    /// @param maxWeeks Max week iterations, to avoid running out of gas
+    /// @return The amount of rebases claimable for the given token ID
+    function claimable(uint256 tokenId, uint256 maxWeeks) external view returns (uint256);
+
     /// @notice Claims rebases for a given token ID
     /// @dev Allows claiming of rebases up to 50 epochs old
     /// @param tokenId The token ID to claim for
     /// @return The amount of rebases claimed
     function claim(uint256 tokenId) external returns (uint256);
 
+    /// @notice Claims rebases for a given token ID
+    /// @dev Allows claiming of rebases up to 50 epochs old
+    /// @param tokenId The token ID to claim for
+    /// @param maxWeeks Max week iterations, to avoid running out of gas
+    /// @return The amount of rebases claimed
+    function claim(uint256 tokenId, uint256 maxWeeks) external returns (uint256);
+
     /// @notice Claims rebases for a list of token IDs
     /// @param tokenIds The token IDs to claim for
     /// @return Whether or not the claim succeeded
     function claimMany(uint256[] calldata tokenIds) external returns (bool);
+
+    /// @notice Claims rebases for a list of token IDs
+    /// @param tokenIds The token IDs to claim for
+    /// @param maxWeeks Max week iterations per token, to avoid running out of gas
+    /// @return Whether or not the claim succeeded
+    function claimMany(uint256[] calldata tokenIds, uint256 maxWeeks) external returns (bool);
 }

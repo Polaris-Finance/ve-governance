@@ -23,7 +23,7 @@ contract RewardsDistributor is IRewardsDistributor {
     /// @inheritdoc IRewardsDistributor
     uint256 public constant WEEK = 1 weeks;
     // Iterations for the claim loop
-    uint256 public constant CLAIM_BATCH_SIZE = 52; // TODO: Review gas amount for this
+    uint256 public constant CLAIM_MAX_WEEKS = 52;
     // We cap the checkpointing loop to avoid gas issues. It is unlikely that no rewards arrive for more than 4 years,
     // and even if that happens, it probably doesn't make much sense to rewind further than that.
     uint256 public constant CHECKPOINT_BATCH_SIZE = 208;
@@ -94,9 +94,9 @@ contract RewardsDistributor is IRewardsDistributor {
         emit CheckpointToken(currentWeekTime, toDistribute);
     }
 
-    function _claim(uint256 _tokenId, uint256 _lastTokenWeekTime) internal returns (uint256) {
+    function _claim(uint256 _tokenId, uint256 _lastTokenWeekTime, uint256 _maxWeeks) internal returns (uint256) {
         _requireApprovedOrOwner(_tokenId);
-        (uint256 toDistribute, uint256 epochStart, uint256 weekCursor) = _claimable(_tokenId, _lastTokenWeekTime);
+        (uint256 toDistribute, uint256 epochStart, uint256 weekCursor) = _claimable(_tokenId, _lastTokenWeekTime, _maxWeeks);
         timeCursorOf[_tokenId] = weekCursor;
         if (toDistribute == 0) return 0;
 
@@ -106,7 +106,8 @@ contract RewardsDistributor is IRewardsDistributor {
 
     function _claimable(
         uint256 _tokenId,
-        uint256 _lastTokenWeekTime
+        uint256 _lastTokenWeekTime,
+        uint256 _maxWeeks
     ) internal view returns (uint256 toDistribute, uint256 weekCursorStart, uint256 weekCursor) {
         weekCursor = timeCursorOf[_tokenId];
         weekCursorStart = weekCursor;
@@ -124,7 +125,7 @@ contract RewardsDistributor is IRewardsDistributor {
         if (weekCursor < START_WEEK_TIME) weekCursor = START_WEEK_TIME;
 
         uint256 currentWeekTime = block.timestamp / WEEK * WEEK;
-        for (uint256 i = 0; i < CLAIM_BATCH_SIZE; i++) {
+        for (uint256 i = 0; i < _maxWeeks; i++) {
             // weekCursor > _lastTokenWeekTime: No rewards after this point
             // weekCursor >= currentWeekTime: We don't claim until week finishes, as new rewards may arrive
             if (weekCursor > _lastTokenWeekTime || weekCursor >= currentWeekTime) break;
@@ -140,12 +141,22 @@ contract RewardsDistributor is IRewardsDistributor {
 
     /// @inheritdoc IRewardsDistributor
     function claimable(uint256 _tokenId) external view returns (uint256 claimable_) {
-        (claimable_, , ) = _claimable(_tokenId, lastTokenWeekTime);
+        (claimable_, , ) = _claimable(_tokenId, lastTokenWeekTime, CLAIM_MAX_WEEKS);
+    }
+
+    /// @inheritdoc IRewardsDistributor
+    function claimable(uint256 _tokenId, uint256 _maxWeeks) external view returns (uint256 claimable_) {
+        (claimable_, , ) = _claimable(_tokenId, lastTokenWeekTime, _maxWeeks);
     }
 
     /// @inheritdoc IRewardsDistributor
     function claim(uint256 _tokenId) external returns (uint256) {
-        uint256 amount = _claim(_tokenId, lastTokenWeekTime);
+        return claim(_tokenId, CLAIM_MAX_WEEKS);
+    }
+
+    /// @inheritdoc IRewardsDistributor
+    function claim(uint256 _tokenId, uint256 _maxWeeks) public returns (uint256) {
+        uint256 amount = _claim(_tokenId, lastTokenWeekTime, _maxWeeks);
         if (amount != 0) {
             IERC20(token).safeTransfer(msg.sender, amount);
             tokenLastBalance -= amount;
@@ -155,13 +166,18 @@ contract RewardsDistributor is IRewardsDistributor {
 
     /// @inheritdoc IRewardsDistributor
     function claimMany(uint256[] calldata _tokenIds) external returns (bool) {
+        return claimMany(_tokenIds, CLAIM_MAX_WEEKS);
+    }
+
+    /// @inheritdoc IRewardsDistributor
+    function claimMany(uint256[] calldata _tokenIds, uint256 _maxWeeks) public returns (bool) {
         uint256 total = 0;
         uint256 _length = _tokenIds.length;
 
         for (uint256 i = 0; i < _length; i++) {
             uint256 _tokenId = _tokenIds[i];
             if (_tokenId == 0) continue;
-            uint256 amount = _claim(_tokenId, lastTokenWeekTime);
+            uint256 amount = _claim(_tokenId, lastTokenWeekTime, _maxWeeks);
             if (amount != 0) {
                 total += amount;
             }

@@ -526,6 +526,143 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(rewardsToken.balanceOf(owner), rewardsToken.balanceOf(owner2));
     }
 
+    function testClaimWithLessWeeksAllInOne() public {
+        _skipToNextEpoch(1 days);
+
+        vm.startPrank(address(owner));
+        uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
+        vm.stopPrank();
+
+        // Let's move to next epoch so that lock is eligible for rewards
+        vm.warp(block.timestamp + 1 weeks);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+        uint256 expectedRewards = 41999958407253552445;
+        // There are 4 weeks to claim
+        assertLt(distributor.claimable(tokenId, 3), expectedRewards);
+        assertEq(distributor.claimable(tokenId, 4), expectedRewards);
+        assertEq(distributor.claimable(tokenId, 10), expectedRewards);
+
+        vm.prank(owner);
+        distributor.claim(tokenId, 4);
+        uint256 postClaimedBalance = rewardsToken.balanceOf(owner);
+        assertEq(postClaimedBalance, expectedRewards);
+    }
+
+    function testClaimWithLessWeeksInTwoParts() public {
+        _skipToNextEpoch(1 days);
+
+        vm.startPrank(address(owner));
+        uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
+        vm.stopPrank();
+
+        // Let's move to next epoch so that lock is eligible for rewards
+        vm.warp(block.timestamp + 1 weeks);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+        uint256 expectedRewards = 41999958407253552445;
+        // There are 4 weeks to claim
+        assertLt(distributor.claimable(tokenId, 3), expectedRewards);
+        assertEq(distributor.claimable(tokenId, 4), expectedRewards);
+        assertEq(distributor.claimable(tokenId, 10), expectedRewards);
+
+        // First claim 2
+        vm.prank(owner);
+        distributor.claim(tokenId, 2);
+        uint256 postClaimedBalance = rewardsToken.balanceOf(owner);
+        assertLt(postClaimedBalance, expectedRewards);
+
+        // Then the other 2
+        vm.prank(owner);
+        distributor.claim(tokenId, 2);
+        postClaimedBalance = rewardsToken.balanceOf(owner);
+        assertEq(postClaimedBalance, expectedRewards);
+    }
+
+    function testClaimManyWithLessWeeksAllInOne() public {
+        _skipToNextEpoch(1 days);
+
+        vm.startPrank(address(owner));
+        uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
+        uint256 tokenId2 = escrow.createLock(TOKEN_1M, MAXTIME);
+        vm.stopPrank();
+
+        // Let's move to next epoch so that lock is eligible for rewards
+        vm.warp(block.timestamp + 1 weeks);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+        uint256 expectedRewards = 41999979203616478854;
+        // There are 4 weeks to claim
+        assertLt(distributor.claimable(tokenId, 3) + distributor.claimable(tokenId, 3), expectedRewards);
+        assertEq(distributor.claimable(tokenId, 4) + distributor.claimable(tokenId, 4), expectedRewards);
+        assertEq(distributor.claimable(tokenId, 10) + distributor.claimable(tokenId, 10), expectedRewards);
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId;
+        tokenIds[1] = tokenId2;
+        vm.prank(owner);
+        distributor.claimMany(tokenIds, 4);
+        uint256 postClaimedBalance = rewardsToken.balanceOf(owner);
+        assertEq(postClaimedBalance, expectedRewards);
+    }
+
+    function testClaimManyWithLessWeeksInTwoParts() public {
+        _skipToNextEpoch(1 days);
+
+        vm.startPrank(address(owner));
+        uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
+        uint256 tokenId2 = escrow.createLock(TOKEN_1M, MAXTIME);
+        vm.stopPrank();
+
+        // Let's move to next epoch so that lock is eligible for rewards
+        vm.warp(block.timestamp + 1 weeks);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        _triggerRewardsAndSkipToNextEpoch(0);
+        uint256 expectedRewards = 41999979203616478854;
+        // There are 4 weeks to claim
+        assertEq(distributor.claimable(tokenId, 4) + distributor.claimable(tokenId, 4), expectedRewards);
+
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = tokenId;
+        tokenIds[1] = tokenId2;
+
+        // First claim 2
+        vm.prank(owner);
+        distributor.claimMany(tokenIds, 2);
+        uint256 postClaimedBalance = rewardsToken.balanceOf(owner);
+        assertLt(postClaimedBalance, expectedRewards);
+
+        // Then the other 2
+        vm.prank(owner);
+        distributor.claimMany(tokenIds, 2);
+        postClaimedBalance = rewardsToken.balanceOf(owner);
+        assertEq(postClaimedBalance, expectedRewards);
+    }
+
     function testRewardsNotLostIfArrivedAfterClaim() public {
         _skipToNextEpoch(0);
 
@@ -556,7 +693,6 @@ contract RewardsDistributorTest is EscrowBase {
 
     function testApprovedCanClaim() public {
         _skipToNextEpoch(1 days);
-        uint256 startTime = weekStartTs(block.timestamp);
 
         vm.startPrank(address(owner));
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
@@ -583,7 +719,6 @@ contract RewardsDistributorTest is EscrowBase {
 
     function testThirdPartyCannotClaim() public {
         _skipToNextEpoch(1 days);
-        uint256 startTime = weekStartTs(block.timestamp);
 
         vm.startPrank(address(owner));
         uint256 tokenId = escrow.createLock(TOKEN_1M, MAXTIME);
@@ -615,7 +750,7 @@ contract RewardsDistributorTest is EscrowBase {
         // All balances the same, as claiming didn't happen
         assertEq(postClaimedBalance1, preClaimedBalance1);
         assertEq(postClaimedBalance2, preClaimedBalance2);
-        assertEq(postClaimedBalance2, preClaimedBalance2);
+        assertEq(postClaimedBalance3, preClaimedBalance3);
     }
 
 
