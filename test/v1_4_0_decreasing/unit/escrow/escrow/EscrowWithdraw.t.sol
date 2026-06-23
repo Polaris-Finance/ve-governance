@@ -36,14 +36,15 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         escrow.setMinDeposit(0);
     }
 
-    function testRevertIfNonZeroVotingPower() public {
-        token.mint(address(this), 100e18);
+    function testRevertIfNonExpired() public {
+        token.mint(address(this), 200e18);
         token.approve(address(escrow), 100e18);
 
         uint256 tokenId = escrow.createLock(100e18, MAX_TIME);
         nftLock.approve(address(escrow), tokenId);
 
-        // Can withdraw as it's not active until start of next checkpoint
+        // Cannot withdraw even if it's not active until start of next checkpoint
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
 
         // Create again
@@ -70,8 +71,6 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         vm.assume(_who != address(0) && address(_who).code.length == 0);
         _dep = uint128(getFlooredAmount(uint256(_dep)));
         vm.assume(_dep > 1e6);
-
-        uint256 startTime = block.timestamp;
 
         // make a deposit
         token.mint(_who, _dep);

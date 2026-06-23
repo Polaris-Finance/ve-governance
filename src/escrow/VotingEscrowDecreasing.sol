@@ -551,7 +551,7 @@ contract VotingEscrowDecreasing is
         return start + _maxTime;
     }
 
-    function isLockExpired(uint256 _tokenId) external view returns (bool) {
+    function isLockExpired(uint256 _tokenId) public view returns (bool) {
         uint256 start = _locked[_tokenId].lockedBalance.start;
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
         uint256 maxTime = IEscrowCurve(curve).maxTime();
@@ -747,10 +747,10 @@ contract VotingEscrowDecreasing is
 
     /// @notice Withdraws tokens from the contract
     function withdraw(uint256 _tokenId) external nonReentrant whenNotPaused {
-        address sender = _msgSender();
+        (address sender,) = _checkOwner(_tokenId);
 
         // Cannot withdraw until lock expires
-        if (votingPower(_tokenId) > 0) revert CannotWithdrawUntilExpiry();
+        if (!isLockExpired(_tokenId)) revert CannotWithdrawUntilExpiry();
 
         LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
         uint256 value = oldLocked.lockedBalance.amount;
