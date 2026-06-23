@@ -49,6 +49,37 @@ import {
     IDelegateMoveVoteRecipient
 } from "../delegation/IEscrowIVotesAdapter.sol";
 
+/**
+ * Diagram for the virtual start, showing the voting power for a lock
+ * C is the current time when the lock is created
+ * V is the virtual timestamp (potentially) in the past
+ * E is the end time of the lock
+ * So E-V is always the max time
+ * By using V in the past, we can imagine that all locks were created with max time
+ * keeping the Curve contract simple.
+
+   |
+   *     |
+   | *   |
+   |   * |
+   |     +
+   |     | *
+   |     |   *
+   |     |     *
+   |     |       *
+   |     |         *
+   |     |           *
+   +-----+-------------*--
+   V     C             E
+
+ * So, for instance:
+ * - Shorter lock:virtualStart further in the past. e.g. a 1-year lock with a 4-year max puts its virtualStart , 3 years before effectiveStart.
+ * - Full-length lock: they're equal. When duration == maxTime, virtualStart == effectiveStart.
+ * The timeline ordering is:
+ *   virtualStart  <=   effectiveStart  <=  end
+ * where
+ *   end = virtualStart + maxTime = effectiveStart + duration
+ */
 contract VotingEscrowDecreasing is
     IVotingEscrow,
     ReentrancyGuard,
@@ -339,6 +370,7 @@ contract VotingEscrowDecreasing is
         uint256 effectiveStart = IClock(clock).nextCheckpointTs();
         // To keep LinearDecreasingCurve simple, we create a virtual timestamp <= current timestamp,
         // so that it seems that all locks were created with max duration
+        // See diagram in the contract header
         // Inside it checks duration is correct
         uint256 virtualStart = _getVirtualStart(effectiveStart, _duration);
 
@@ -417,6 +449,8 @@ contract VotingEscrowDecreasing is
         // query the duration lib to get the last time we could deposit
         uint256 effectiveStart = IClock(clock).nextCheckpointTs();
         newLocked.lockedBalance.amount = amount.toUint208();
+        // It's locked for the max time. The virtual start will equal the effective start, no shift.
+        // To avoid that someone can have max power for a while and then shortcut an quick unlock.
         newLocked.lockedBalance.start = uint48(effectiveStart);
         newLocked.effectiveStart = effectiveStart;
 
@@ -726,6 +760,7 @@ contract VotingEscrowDecreasing is
         totalLocked -= value;
 
         // Burn the NFT and transfer the tokens to the user
+        // This will call back `_moveDelegateVotes` to clean up
         IERC721EMB(lockNFT).burn(_tokenId);
 
         IERC20(token).safeTransfer(sender, value);
