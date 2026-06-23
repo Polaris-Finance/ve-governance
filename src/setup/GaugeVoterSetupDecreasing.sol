@@ -211,7 +211,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
         PermissionLib.Operation _grantOrRevoke
     ) public view returns (PermissionLib.MultiTargetPermission[] memory) {
         PermissionLib.MultiTargetPermission[]
-            memory permissions = new PermissionLib.MultiTargetPermission[](12);
+            memory permissions = new PermissionLib.MultiTargetPermission[](10);
 
         permissions[0] = PermissionLib.MultiTargetPermission({
             permissionId: GaugeVoter(_plugin).GAUGE_ADMIN_ROLE(),
@@ -229,7 +229,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
             condition: PermissionLib.NO_CONDITION
         });
 
-        permissions[3] = PermissionLib.MultiTargetPermission({
+        permissions[2] = PermissionLib.MultiTargetPermission({
             permissionId: Curve(_curve).CURVE_ADMIN_ROLE(),
             where: _curve,
             who: _dao,
@@ -237,7 +237,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
             condition: PermissionLib.NO_CONDITION
         });
 
-        permissions[4] = PermissionLib.MultiTargetPermission({
+        permissions[3] = PermissionLib.MultiTargetPermission({
             permissionId: GaugeVoter(_plugin).UPGRADE_PLUGIN_PERMISSION_ID(),
             where: _plugin,
             who: _dao,
@@ -245,7 +245,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
             condition: PermissionLib.NO_CONDITION
         });
 
-        permissions[5] = PermissionLib.MultiTargetPermission({
+        permissions[4] = PermissionLib.MultiTargetPermission({
             permissionId: Clock(_clock).CLOCK_ADMIN_ROLE(),
             where: _clock,
             who: _dao,
@@ -253,7 +253,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
             condition: PermissionLib.NO_CONDITION
         });
 
-        permissions[6] = PermissionLib.MultiTargetPermission({
+        permissions[5] = PermissionLib.MultiTargetPermission({
             permissionId: Lock(_nft).LOCK_ADMIN_ROLE(),
             where: _nft,
             who: _dao,
@@ -261,7 +261,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
             condition: PermissionLib.NO_CONDITION
         });
 
-        permissions[7] = PermissionLib.MultiTargetPermission({
+        permissions[6] = PermissionLib.MultiTargetPermission({
             permissionId: EscrowIVotesAdapter(_ivotesAdapter).DELEGATION_ADMIN_ROLE(),
             where: _ivotesAdapter,
             who: _dao,
@@ -269,7 +269,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
             condition: PermissionLib.NO_CONDITION
         });
 
-        permissions[8] = PermissionLib.MultiTargetPermission({
+        permissions[7] = PermissionLib.MultiTargetPermission({
             permissionId: EscrowIVotesAdapter(_ivotesAdapter).DELEGATION_TOKEN_ROLE(),
             where: _ivotesAdapter,
             who: _dao,
@@ -277,7 +277,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
             condition: PermissionLib.NO_CONDITION
         });
 
-        permissions[9] = PermissionLib.MultiTargetPermission({
+        permissions[8] = PermissionLib.MultiTargetPermission({
             permissionId: VotingEscrow(_escrow).PAUSER_ROLE(),
             where: _escrow,
             who: _dao,
@@ -285,7 +285,7 @@ contract GaugeVoterSetupDecreasing is PluginSetup {
             condition: PermissionLib.NO_CONDITION
         });
 
-        permissions[10] = PermissionLib.MultiTargetPermission({
+        permissions[9] = PermissionLib.MultiTargetPermission({
             permissionId: VotingEscrow(_escrow).SWEEPER_ROLE(),
             where: _escrow,
             who: _dao,
