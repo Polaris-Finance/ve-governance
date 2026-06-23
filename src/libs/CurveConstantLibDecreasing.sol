@@ -14,7 +14,7 @@ int256 constant INITIAL_BIAS_MULTIPLIER = 1;
 library CurveConstantLib {
     int256 internal constant SHARED_CONSTANT_COEFFICIENT = INITIAL_BIAS_MULTIPLIER * 1e18;
 
-    /// @dev straight line so the curve is increasing only in the linear term
+    /// @dev straight line so the curve is decreasing only in the linear term
     /// - 1 / (104 * SECONDS_IN_2_WEEKS)
     int256 internal constant SHARED_LINEAR_DENOMINATOR = -int256(MAX_EPOCHS) * 2 weeks;
     int256 internal constant SHARED_LINEAR_COEFFICIENT = 1e18 / SHARED_LINEAR_DENOMINATOR;

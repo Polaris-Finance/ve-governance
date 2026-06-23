@@ -92,6 +92,7 @@ contract LinearDecreasingCurve is
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(int256[2] memory _coefficients, uint256 _maxEpochs) {
+        require(_coefficients[1] < 0, "Linear coefficient should be negative");
         SHARED_CONSTANT_COEFFICIENT = _coefficients[0];
         SHARED_LINEAR_DENOMINATOR = _coefficients[1];
 
@@ -321,6 +322,8 @@ contract LinearDecreasingCurve is
             uint256 lastPointCheckpoint = lastPoint.writtenTs;
             uint256 t_i = lastPointCheckpoint;
 
+            // If the system hasn't been touched for > 255 intervals (~5 years), this will end prematurely
+            // We assume the system gets checkpointed more frequently than that.
             for (uint256 i = 0; i < 255; ++i) {
                 t_i += checkpointInterval;
                 int256 dSlope;
@@ -517,6 +520,8 @@ contract LinearDecreasingCurve is
 
         uint256 checkpointInterval = IClock(clock).checkpointInterval();
 
+        // If the system hasn't been touched for > 255 intervals (~5 years), this will end prematurely
+        // We assume the system gets checkpointed more frequently than that.
         for (uint256 i = 0; i < 255; ++i) {
             t_i += checkpointInterval;
             int256 dSlope = 0;

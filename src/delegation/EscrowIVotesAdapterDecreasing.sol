@@ -368,6 +368,8 @@ contract EscrowIVotesAdapterDecreasing is
         int256 _totalSlope,
         address _delegatee
     ) internal override {
+        // If the system hasn't been touched for > 255 intervals (~5 years), this will end prematurely
+        // We assume the system gets checkpointed more frequently than that.
         _checkpoint(_totalBias, _totalSlope, _delegatee, 255);
     }
 
@@ -552,6 +554,8 @@ contract EscrowIVotesAdapterDecreasing is
 
         uint256 t_i = (ts / _checkpointInterval) * _checkpointInterval;
 
+        // If the system hasn't been touched for > 255 intervals (~5 years), this will end prematurely
+        // We assume the system gets checkpointed more frequently than that.
         for (uint256 i = 0; i < 255; ++i) {
             t_i += _checkpointInterval;
             int256 dSlope = 0;
