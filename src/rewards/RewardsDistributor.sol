@@ -5,9 +5,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IVotingEscrowDecreasing as IVotingEscrow} from "@escrow/IVotingEscrowDecreasing.sol";
-import {
-    IEscrowCurveDecreasing as IEscrowCurve
-} from "@curve/IEscrowCurveDecreasing.sol";
+import {IEscrowCurveDecreasing as IEscrowCurve} from "@curve/IEscrowCurveDecreasing.sol";
 import {IRewardsDistributor} from "./IRewardsDistributor.sol";
 
 /*
@@ -96,7 +94,8 @@ contract RewardsDistributor is IRewardsDistributor {
 
     function _claim(uint256 _tokenId, uint256 _lastTokenWeekTime, uint256 _maxWeeks) internal returns (uint256) {
         _requireApprovedOrOwner(_tokenId);
-        (uint256 toDistribute, uint256 epochStart, uint256 weekCursor) = _claimable(_tokenId, _lastTokenWeekTime, _maxWeeks);
+        (uint256 toDistribute, uint256 epochStart, uint256 weekCursor) =
+            _claimable(_tokenId, _lastTokenWeekTime, _maxWeeks);
         timeCursorOf[_tokenId] = weekCursor;
         if (toDistribute == 0) return 0;
 
@@ -104,11 +103,11 @@ contract RewardsDistributor is IRewardsDistributor {
         return toDistribute;
     }
 
-    function _claimable(
-        uint256 _tokenId,
-        uint256 _lastTokenWeekTime,
-        uint256 _maxWeeks
-    ) internal view returns (uint256 toDistribute, uint256 weekCursorStart, uint256 weekCursor) {
+    function _claimable(uint256 _tokenId, uint256 _lastTokenWeekTime, uint256 _maxWeeks)
+        internal
+        view
+        returns (uint256 toDistribute, uint256 weekCursorStart, uint256 weekCursor)
+    {
         weekCursor = timeCursorOf[_tokenId];
         weekCursorStart = weekCursor;
 
@@ -141,24 +140,24 @@ contract RewardsDistributor is IRewardsDistributor {
 
     /// @inheritdoc IRewardsDistributor
     function claimable(uint256 _tokenId) external view returns (uint256 claimable_) {
-        (claimable_, , ) = _claimable(_tokenId, lastTokenWeekTime, CLAIM_MAX_WEEKS);
+        (claimable_,,) = _claimable(_tokenId, lastTokenWeekTime, CLAIM_MAX_WEEKS);
     }
 
     /// @inheritdoc IRewardsDistributor
     function claimable(uint256 _tokenId, uint256 _maxWeeks) external view returns (uint256 claimable_) {
-        (claimable_, , ) = _claimable(_tokenId, lastTokenWeekTime, _maxWeeks);
+        (claimable_,,) = _claimable(_tokenId, lastTokenWeekTime, _maxWeeks);
     }
 
     /// @inheritdoc IRewardsDistributor
     function claim(uint256 _tokenId) external returns (uint256) {
-        return claim(_tokenId, CLAIM_MAX_WEEKS);
+        return claim(_tokenId, msg.sender, CLAIM_MAX_WEEKS);
     }
 
     /// @inheritdoc IRewardsDistributor
-    function claim(uint256 _tokenId, uint256 _maxWeeks) public returns (uint256) {
+    function claim(uint256 _tokenId, address _receiver, uint256 _maxWeeks) public returns (uint256) {
         uint256 amount = _claim(_tokenId, lastTokenWeekTime, _maxWeeks);
         if (amount != 0) {
-            IERC20(token).safeTransfer(msg.sender, amount);
+            IERC20(token).safeTransfer(_receiver, amount);
             tokenLastBalance -= amount;
         }
         return amount;
@@ -166,11 +165,11 @@ contract RewardsDistributor is IRewardsDistributor {
 
     /// @inheritdoc IRewardsDistributor
     function claimMany(uint256[] calldata _tokenIds) external returns (bool) {
-        return claimMany(_tokenIds, CLAIM_MAX_WEEKS);
+        return claimMany(_tokenIds, msg.sender, CLAIM_MAX_WEEKS);
     }
 
     /// @inheritdoc IRewardsDistributor
-    function claimMany(uint256[] calldata _tokenIds, uint256 _maxWeeks) public returns (bool) {
+    function claimMany(uint256[] calldata _tokenIds, address _receiver, uint256 _maxWeeks) public returns (bool) {
         uint256 total = 0;
         uint256 _length = _tokenIds.length;
 
@@ -183,7 +182,7 @@ contract RewardsDistributor is IRewardsDistributor {
             }
         }
         if (total != 0) {
-            IERC20(token).safeTransfer(msg.sender, total);
+            IERC20(token).safeTransfer(_receiver, total);
             tokenLastBalance -= total;
         }
 

@@ -3,6 +3,7 @@
 pragma solidity ^0.8.17;
 
 import {
+
     //Lock,
     //Clock,
     IVotingEscrowDecreasing as IVotingEscrow,
@@ -550,7 +551,7 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(distributor.claimable(tokenId, 10), expectedRewards);
 
         vm.prank(owner);
-        distributor.claim(tokenId, 4);
+        distributor.claim(tokenId, owner, 4);
         uint256 postClaimedBalance = rewardsToken.balanceOf(owner);
         assertEq(postClaimedBalance, expectedRewards);
     }
@@ -580,13 +581,13 @@ contract RewardsDistributorTest is EscrowBase {
 
         // First claim 2
         vm.prank(owner);
-        distributor.claim(tokenId, 2);
+        distributor.claim(tokenId, owner, 2);
         uint256 postClaimedBalance = rewardsToken.balanceOf(owner);
         assertLt(postClaimedBalance, expectedRewards);
 
         // Then the other 2
         vm.prank(owner);
-        distributor.claim(tokenId, 2);
+        distributor.claim(tokenId, owner, 2);
         postClaimedBalance = rewardsToken.balanceOf(owner);
         assertEq(postClaimedBalance, expectedRewards);
     }
@@ -619,7 +620,7 @@ contract RewardsDistributorTest is EscrowBase {
         tokenIds[0] = tokenId;
         tokenIds[1] = tokenId2;
         vm.prank(owner);
-        distributor.claimMany(tokenIds, 4);
+        distributor.claimMany(tokenIds, owner, 4);
         uint256 postClaimedBalance = rewardsToken.balanceOf(owner);
         assertEq(postClaimedBalance, expectedRewards);
     }
@@ -652,13 +653,13 @@ contract RewardsDistributorTest is EscrowBase {
 
         // First claim 2
         vm.prank(owner);
-        distributor.claimMany(tokenIds, 2);
+        distributor.claimMany(tokenIds, owner, 2);
         uint256 postClaimedBalance = rewardsToken.balanceOf(owner);
         assertLt(postClaimedBalance, expectedRewards);
 
         // Then the other 2
         vm.prank(owner);
-        distributor.claimMany(tokenIds, 2);
+        distributor.claimMany(tokenIds, owner, 2);
         postClaimedBalance = rewardsToken.balanceOf(owner);
         assertEq(postClaimedBalance, expectedRewards);
     }
@@ -752,7 +753,6 @@ contract RewardsDistributorTest is EscrowBase {
         assertEq(postClaimedBalance2, preClaimedBalance2);
         assertEq(postClaimedBalance3, preClaimedBalance3);
     }
-
 
     // Helper functions
 
