@@ -116,8 +116,8 @@ contract FactoryBase is StdInvariant, Test, FixedPointBase {
         );
         vm.stopPrank();
 
-        (int256[2] memory coefficients, ) = CurveConstantLib.getCoefficients();
-        FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), coefficients[1]);
+        (, int256 linearDenominator, ) = CurveConstantLib.getParams();
+        FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), linearDenominator);
     }
 
     function createTestToken(address[] memory holders) internal returns (address) {
@@ -131,15 +131,15 @@ contract FactoryBase is StdInvariant, Test, FixedPointBase {
     }
 
     function deployGaugeVoterPluginSetup() internal returns (GaugeVoterSetup result) {
-        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
+        (int256 constantCoefficient, int256 linearDenominator, uint256 maxEpochs) = CurveConstantLib.getParams();
 
         result = new GaugeVoterSetup(
             address(new SimpleGaugeVoter()),
-            address(new Curve(coefficients, maxEpoch)),
+            address(new Curve(constantCoefficient, linearDenominator, maxEpochs)),
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(constantCoefficient, linearDenominator, maxEpochs))
         );
     }
 }

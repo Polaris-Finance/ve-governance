@@ -36,10 +36,8 @@ contract MockLockNFT {
 }
 
 contract EscrowIVotesAdapterA is EscrowIVotesAdapter {
-    constructor(
-        int256[2] memory coefficients,
-        uint256 maxEpoch
-    ) EscrowIVotesAdapter(coefficients, maxEpoch) {}
+    constructor(int256 _constantCoefficient, int256 _linearDenominator, uint256 _maxEpochs)
+        EscrowIVotesAdapter(_constantCoefficient, _linearDenominator, _maxEpochs) {}
 
     function pointHistory_(
         address _account,
@@ -90,8 +88,8 @@ contract Base is
 
         uint256 maxTime = IClock(clock).epochDuration() * CurveConstantLib.MAX_EPOCHS;
 
-        (int256[2] memory coefficients, ) = CurveConstantLib.getCoefficients();
-        FixedPointBase.initialize(maxTime, clock.checkpointInterval(), coefficients[1]);
+        (int256 constantCoefficient, int256 linearDenominator, ) = CurveConstantLib.getParams();
+        FixedPointBase.initialize(maxTime, clock.checkpointInterval(), linearDenominator);
 
         // grant this contract admin role
         dao.grant({
@@ -154,8 +152,8 @@ contract Base is
         address _clock,
         address _escrow
     ) public returns (EscrowIVotesAdapterA) {
-        (int256[2] memory coefficients, uint256 maxEpochs) = CurveConstantLib.getCoefficients();
-        EscrowIVotesAdapterA impl = new EscrowIVotesAdapterA(coefficients, maxEpochs);
+        (int256 constantCoefficient, int256 linearDenominator, uint256 maxEpochs) = CurveConstantLib.getParams();
+        EscrowIVotesAdapterA impl = new EscrowIVotesAdapterA(constantCoefficient, linearDenominator, maxEpochs);
 
         bool startPaused = false;
 

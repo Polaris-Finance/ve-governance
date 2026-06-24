@@ -56,8 +56,8 @@ contract CurveBase is TestHelpers, FixedPointBase, ILockedBalanceDecreasing {
         bytes memory initClockCalldata = abi.encodeWithSelector(Clock.initialize.selector, dao);
         clock = Clock(clockImpl.deployUUPSProxy(initClockCalldata));
 
-        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
-        address impl = address(new Curve(coefficients, maxEpoch));
+        (int256 constantCoefficient, int256 linearDenominator, uint256 maxEpochs) = CurveConstantLib.getParams();
+        address impl = address(new Curve(constantCoefficient, linearDenominator, maxEpochs));
 
         bytes memory initCalldata = abi.encodeCall(
             Curve.initialize,
@@ -80,7 +80,7 @@ contract CurveBase is TestHelpers, FixedPointBase, ILockedBalanceDecreasing {
         });
 
         escrow.setCurve(curve);
-        FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), coefficients[1]);
+        FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), linearDenominator);
     }
 
     function _getEmptyLockedBalance() internal pure returns (LockedBalanceDecreasing memory) {}

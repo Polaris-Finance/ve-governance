@@ -76,9 +76,10 @@ contract EscrowIVotesAdapterDecreasing is
     //////////////////////////////////////////////////////////////*/
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor(int256[2] memory _coefficients, uint256 _maxEpochs) {
-        SHARED_CONSTANT_COEFFICIENT = _coefficients[0];
-        SHARED_LINEAR_DENOMINATOR = _coefficients[1];
+    constructor(int256 _constantCoefficient, int256 _linearDenominator, uint256 _maxEpochs) {
+        require(_linearDenominator< 0, "Linear denominator should be negative");
+        SHARED_CONSTANT_COEFFICIENT = _constantCoefficient;
+        SHARED_LINEAR_DENOMINATOR = _linearDenominator;
 
         MAX_EPOCHS = _maxEpochs;
 

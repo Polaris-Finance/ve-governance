@@ -26,8 +26,8 @@ contract TestDecreasingCurveLogic is CurveBase {
     );
 
     function testUUPSUpgrade() public {
-        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
-        address newImpl = address(new Curve(coefficients, maxEpoch));
+        (int256 constantCoefficient, int256 linearDenominator, uint256 maxEpochs) = CurveConstantLib.getParams();
+        address newImpl = address(new Curve(constantCoefficient, linearDenominator, maxEpochs));
         curve.upgradeTo(newImpl);
         assertEq(curve.implementation(), newImpl);
 

@@ -26,12 +26,7 @@ library CurveConstantLib {
     /// 26 epochs in a year, 4 years = 104 epochs
     uint256 internal constant MAX_EPOCHS = 104;
 
-    function getCoefficients() internal pure returns (int256[2] memory, uint256) {
-        int256[2] memory coefficients;
-        coefficients[0] = SHARED_CONSTANT_COEFFICIENT;
-        coefficients[1] = SHARED_LINEAR_DENOMINATOR;
-        uint256 maxEpoch = MAX_EPOCHS;
-
-        return (coefficients, maxEpoch);
+    function getParams() internal pure returns (int256, int256, uint256) {
+        return (SHARED_CONSTANT_COEFFICIENT, SHARED_LINEAR_DENOMINATOR, MAX_EPOCHS);
     }
 }

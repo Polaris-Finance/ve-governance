@@ -35,11 +35,12 @@ import {
 import {FixedPointBase} from "../../base/FixedPointBase.sol";
 
 contract GaugesDaoFactoryTest is FixedPointBase, Test {
-    int256[2] internal coefficients;
-    uint256 internal maxEpoch;
+    int256 internal constantCoefficient;
+    //int256 internal linearDenominator; // set in FixedPointBase
+    uint256 internal maxEpochs;
     
     function setUp() public {
-        (coefficients, maxEpoch) = CurveConstantLib.getCoefficients();
+        (constantCoefficient, linearDenominator, maxEpochs) = CurveConstantLib.getParams();
     }
     
     function test_ShouldStoreTheSettings_1() public {
@@ -50,11 +51,11 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
 
         SimpleGaugeVoterSetup gaugeVoterPluginSetup = new SimpleGaugeVoterSetup(
             address(new SimpleGaugeVoter()),
-            address(new Curve(coefficients, maxEpoch)),
+            address(new Curve(constantCoefficient, linearDenominator, maxEpochs)),
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(constantCoefficient, linearDenominator, maxEpochs))
         );
 
         MockPluginRepoRegistry pRepoRegistry = new MockPluginRepoRegistry();
@@ -204,11 +205,11 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
 
         SimpleGaugeVoterSetup gaugeVoterPluginSetup = new SimpleGaugeVoterSetup(
             address(new SimpleGaugeVoter()),
-            address(new Curve(coefficients, maxEpoch)),
+            address(new Curve(constantCoefficient, linearDenominator, maxEpochs)),
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(constantCoefficient, linearDenominator, maxEpochs))
         );
 
         MockPluginRepoRegistry pRepoRegistry = new MockPluginRepoRegistry();
@@ -373,11 +374,11 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
 
         SimpleGaugeVoterSetup gaugeVoterPluginSetup = new SimpleGaugeVoterSetup(
             address(new SimpleGaugeVoter()),
-            address(new Curve(coefficients, maxEpoch)),
+            address(new Curve(constantCoefficient, linearDenominator, maxEpochs)),
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(constantCoefficient, linearDenominator, maxEpochs))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](2);
@@ -709,11 +710,11 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
 
         SimpleGaugeVoterSetup gaugeVoterPluginSetup = new SimpleGaugeVoterSetup(
             address(new SimpleGaugeVoter()),
-            address(new Curve(coefficients, maxEpoch)),
+            address(new Curve(constantCoefficient, linearDenominator, maxEpochs)),
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(constantCoefficient, linearDenominator, maxEpochs))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](3);
@@ -1124,11 +1125,11 @@ contract GaugesDaoFactoryTest is FixedPointBase, Test {
 
         SimpleGaugeVoterSetup gaugeVoterPluginSetup = new SimpleGaugeVoterSetup(
             address(new SimpleGaugeVoter()),
-            address(new Curve(coefficients, maxEpoch)),
+            address(new Curve(constantCoefficient, linearDenominator, maxEpochs)),
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(constantCoefficient, linearDenominator, maxEpochs))
         );
 
         TokenParameters[] memory tokenParameters = new TokenParameters[](3);

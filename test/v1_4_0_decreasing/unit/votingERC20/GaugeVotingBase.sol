@@ -136,16 +136,16 @@ contract GaugeVotingBase is
 
         voterBase = address(new SimpleGaugeVoter());
 
-        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
+        (int256 constantCoefficient, int256 linearDenominator, uint256 maxEpochs) = CurveConstantLib.getParams();
 
         // deploy setup
         voterSetup = new SimpleGaugeVoterSetup(
             voterBase,
-            address(new LinearDecreasingCurve(coefficients, maxEpoch)),
+            address(new LinearDecreasingCurve(constantCoefficient, linearDenominator, maxEpochs)),
             address(new VotingEscrow()),
             address(new Clock()),
             address(new Lock()),
-            address(new EscrowIVotesAdapter(coefficients, maxEpoch))
+            address(new EscrowIVotesAdapter(constantCoefficient, linearDenominator, maxEpochs))
         );
 
         // push to the PSP

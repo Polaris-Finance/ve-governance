@@ -105,8 +105,8 @@ contract EscrowBase is
         nftLock = _deployLock(address(escrow), name, symbol, address(dao));
         ivotesAdapter = _deployEscrowIVotesAdapter(address(dao), address(escrow), address(clock));
 
-        (int256[2] memory coefficients, ) = CurveConstantLib.getCoefficients();
-        FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), coefficients[1]);
+        (, int256 linearDenominator, ) = CurveConstantLib.getParams();
+        FixedPointBase.initialize(curve.maxTime(), clock.checkpointInterval(), linearDenominator);
 
         // to be added as proxies
         voter = _deployVoter(
@@ -359,8 +359,8 @@ contract EscrowBase is
         address _escrow,
         address _clock
     ) public returns (EscrowIVotesAdapter) {
-        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
-        EscrowIVotesAdapter impl = new EscrowIVotesAdapter(coefficients, maxEpoch);
+        (int256 constantCoefficient, int256 linearDenominator, uint256 maxEpochs) = CurveConstantLib.getParams();
+        EscrowIVotesAdapter impl = new EscrowIVotesAdapter(constantCoefficient, linearDenominator, maxEpochs);
         bool startPaused = false;
 
         bytes memory initCalldata = abi.encodeCall(
@@ -393,8 +393,8 @@ contract EscrowBase is
         address _dao,
         address _clock
     ) public returns (LinearDecreasingCurve) {
-        (int256[2] memory coefficients, uint256 maxEpoch) = CurveConstantLib.getCoefficients();
-        LinearDecreasingCurve impl = new LinearDecreasingCurve(coefficients, maxEpoch);
+        (int256 constantCoefficient, int256 linearDenominator, uint256 maxEpochs) = CurveConstantLib.getParams();
+        LinearDecreasingCurve impl = new LinearDecreasingCurve(constantCoefficient, linearDenominator, maxEpochs);
 
         bytes memory initCalldata = abi.encodeCall(
             LinearDecreasingCurve.initialize,
