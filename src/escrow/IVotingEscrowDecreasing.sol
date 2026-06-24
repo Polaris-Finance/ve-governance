@@ -11,7 +11,7 @@ import {ILockedBalanceIncreasing} from "@escrow/IVotingEscrowIncreasing.sol";
 interface ILockedBalanceDecreasing is ILockedBalanceIncreasing {
     struct LockedBalanceDecreasing {
         LockedBalance lockedBalance;
-        uint256 effectiveStart;
+        uint256 recordedStart;
     }
 }
 

@@ -73,12 +73,12 @@ import {
    V     C             E
 
  * So, for instance:
- * - Shorter lock:virtualStart further in the past. e.g. a 1-year lock with a 4-year max puts its virtualStart , 3 years before effectiveStart.
- * - Full-length lock: they're equal. When duration == maxTime, virtualStart == effectiveStart.
+ * - Shorter lock: virtualStart further in the past. e.g. a 1-year lock with a 4-year max puts its virtualStart, 3 years before recordedStart.
+ * - Full-length lock: they're equal. When duration == maxTime, virtualStart == recordedStart.
  * The timeline ordering is:
- *   virtualStart  <=   effectiveStart  <=  end
+ *   virtualStart  <=   recordedStart  <=  end
  * where
- *   end = virtualStart + maxTime = effectiveStart + duration
+ *   end = virtualStart + maxTime = recordedStart + duration
  */
 contract VotingEscrowDecreasing is
     IVotingEscrow,
@@ -367,12 +367,12 @@ contract VotingEscrowDecreasing is
         if (_value < minDeposit) revert AmountTooSmall();
 
         // query the duration lib to get the last time we could deposit
-        uint256 effectiveStart = IClock(clock).nextCheckpointTs();
+        uint256 recordedStart = IClock(clock).nextCheckpointTs();
         // To keep LinearDecreasingCurve simple, we create a virtual timestamp <= current timestamp,
         // so that it seems that all locks were created with max duration
         // See diagram in the contract header
         // Inside it checks duration is correct
-        uint256 virtualStart = _getVirtualStart(effectiveStart, _duration);
+        uint256 virtualStart = _getVirtualStart(recordedStart, _duration);
 
         // increment the total locked supply and get the new tokenId
         totalLocked += _value;
@@ -381,7 +381,7 @@ contract VotingEscrowDecreasing is
         // write the lock and checkpoint the voting power
         LockedBalanceDecreasing memory lock = LockedBalanceDecreasing(
             LockedBalance(_value.toUint208(), virtualStart.toUint48()),
-            effectiveStart
+            recordedStart
         );
         _locked[newTokenId] = lock;
 
@@ -396,23 +396,23 @@ contract VotingEscrowDecreasing is
         // mint the NFT before and emit the event to complete the lock
         IERC721EMB(lockNFT).mint(_to, newTokenId);
 
-        emit Deposit(_to, newTokenId, effectiveStart, virtualStart, _duration, _value, totalLocked);
+        emit Deposit(_to, newTokenId, recordedStart, virtualStart, _duration, _value, totalLocked);
 
         return newTokenId;
     }
 
-    function getVirtualStart(uint256 _effectiveStart, uint256 _duration) external view returns(uint256) {
-        uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs(_effectiveStart);
+    function getVirtualStart(uint256 _recordedStart, uint256 _duration) external view returns(uint256) {
+        uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs(_recordedStart);
         return _getVirtualStart(nextEffectiveStart, _duration);
     }
 
     // @dev: All params here are multiples of checkpointInterval, so the result will be too
-    function _getVirtualStart(uint256 _effectiveStart, uint256 _duration) internal view returns(uint256) {
+    function _getVirtualStart(uint256 _recordedStart, uint256 _duration) internal view returns(uint256) {
         uint256 maxTime = IEscrowCurve(curve).maxTime();
         _checkDuration(_duration, maxTime);
         // To keep LinearDecreasingCurve simple, we create a virtual timestamp <= current timestamp,
         // so that it seems that all locks were created with max duration
-        return _effectiveStart + _duration - maxTime;
+        return _recordedStart + _duration - maxTime;
     }
 
     function lockPermanent(uint256 _tokenId) external whenNotPaused {
@@ -428,7 +428,7 @@ contract VotingEscrowDecreasing is
         uint256 amount = oldLocked.lockedBalance.amount;
         newLocked.lockedBalance.amount = amount.toUint208();
         newLocked.lockedBalance.start = 0;
-        newLocked.effectiveStart = nextEffectiveStart;
+        newLocked.recordedStart = nextEffectiveStart;
         _checkpoint(_tokenId, _locked[_tokenId], newLocked);
         _locked[_tokenId] = newLocked;
 
@@ -447,19 +447,19 @@ contract VotingEscrowDecreasing is
 
         uint256 amount = oldLocked.lockedBalance.amount;
         // query the duration lib to get the last time we could deposit
-        uint256 effectiveStart = IClock(clock).nextCheckpointTs();
+        uint256 recordedStart = IClock(clock).nextCheckpointTs();
         newLocked.lockedBalance.amount = amount.toUint208();
         // It's locked for the max time. The virtual start will equal the effective start, no shift.
         // To avoid that someone can have max power for a while and then shortcut an quick unlock.
-        newLocked.lockedBalance.start = uint48(effectiveStart);
-        newLocked.effectiveStart = effectiveStart;
+        newLocked.lockedBalance.start = uint48(recordedStart);
+        newLocked.recordedStart = recordedStart;
 
         _checkpoint(_tokenId, _locked[_tokenId], newLocked);
         _locked[_tokenId] = newLocked;
 
         IEscrowIVotesAdapter(ivotesAdapter).updateDelegateVotes(owner, _tokenId, oldLocked.lockedBalance, newLocked.lockedBalance);
 
-        emit UnlockPermanent(sender, _tokenId, amount, effectiveStart);
+        emit UnlockPermanent(sender, _tokenId, amount, recordedStart);
     }
 
     function increaseAmount(uint256 _tokenId, uint256 _value) external whenNotPaused {
@@ -473,7 +473,7 @@ contract VotingEscrowDecreasing is
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
         newLocked.lockedBalance.amount = oldLocked.lockedBalance.amount + _value.toUint208();
         newLocked.lockedBalance.start = oldLocked.lockedBalance.start;
-        newLocked.effectiveStart = nextEffectiveStart;
+        newLocked.recordedStart = nextEffectiveStart;
         // increment the total locked supply
         totalLocked += _value;
 
@@ -488,7 +488,7 @@ contract VotingEscrowDecreasing is
         uint256 duration;
         // Duration only makes sense for non permanen locks. Anyway this is only for the event, and we are not changing duration here.
         if (newLocked.lockedBalance.start > 0) {
-            duration = newLocked.lockedBalance.start + maxTime - newLocked.effectiveStart;
+            duration = newLocked.lockedBalance.start + maxTime - newLocked.recordedStart;
         }
 
         emit Deposit(owner, _tokenId, nextEffectiveStart, newLocked.lockedBalance.start, duration, _value, totalLocked);
@@ -513,7 +513,7 @@ contract VotingEscrowDecreasing is
         newLocked.lockedBalance.amount = amount.toUint208();
         uint256 virtualStart = _getVirtualStart(nextEffectiveStart, _duration);
         newLocked.lockedBalance.start = virtualStart.toUint48();
-        newLocked.effectiveStart = nextEffectiveStart;
+        newLocked.recordedStart = nextEffectiveStart;
 
         _checkpoint(_tokenId, _locked[_tokenId], newLocked);
         _locked[_tokenId] = newLocked;
@@ -620,18 +620,18 @@ contract VotingEscrowDecreasing is
             IDelegateMoveVoteRecipient.TokenLock(ownerFrom, _to, oldLockedTo.lockedBalance)
         );
 
-        uint256 effectiveStart = IClock(clock).nextCheckpointTs();
+        uint256 recordedStart = IClock(clock).nextCheckpointTs();
 
         // Update for `_from`.
         IERC721EMB(lockNFT).burn(_from);
         _locked[_from] = LockedBalanceDecreasing(LockedBalance(0, 0), 0);
-        _checkpoint(_from, oldLockedFrom, LockedBalanceDecreasing(LockedBalance(0, oldLockedFrom.lockedBalance.start), effectiveStart));
+        _checkpoint(_from, oldLockedFrom, LockedBalanceDecreasing(LockedBalance(0, oldLockedFrom.lockedBalance.start), recordedStart));
 
         // update for `_to`.
         uint208 newLockedAmount = oldLockedFrom.lockedBalance.amount + oldLockedTo.lockedBalance.amount;
         LockedBalanceDecreasing memory newOldLockedTo = LockedBalanceDecreasing(
             LockedBalance(newLockedAmount, oldLockedTo.lockedBalance.start),
-            effectiveStart
+            recordedStart
         );
         _checkpoint(_to, oldLockedTo, newOldLockedTo);
         _locked[_to] = newOldLockedTo;
@@ -666,11 +666,11 @@ contract VotingEscrowDecreasing is
             revert AmountTooSmall();
         }
 
-        uint256 effectiveStart = IClock(clock).nextCheckpointTs();
+        uint256 recordedStart = IClock(clock).nextCheckpointTs();
         // update for `_from`.
         LockedBalanceDecreasing memory newFromLocked = LockedBalanceDecreasing(
             LockedBalance(amount1, locked_.lockedBalance.start),
-            effectiveStart
+            recordedStart
         );
         _checkpoint(_from, locked_, newFromLocked);
         _locked[_from] = newFromLocked;
@@ -689,7 +689,7 @@ contract VotingEscrowDecreasing is
 
         // update for `newTokenId`.
         locked_.lockedBalance.amount = amount2;
-        locked_.effectiveStart = effectiveStart;
+        locked_.recordedStart = recordedStart;
         _locked[newTokenId] = locked_;
         _checkpoint(newTokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), locked_);
         IERC721EMB(lockNFT).mint(owner, newTokenId);

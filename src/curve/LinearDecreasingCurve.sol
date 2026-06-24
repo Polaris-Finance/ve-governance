@@ -305,12 +305,12 @@ contract LinearDecreasingCurve is
         // Get the slope, bias and end for `_newLocked`...
         // newLocked could be ended in case of merge, when a token is already mature, in that case we make slope zero
         (uint256 newLockedBias, int256 newLockedSlope, uint256 newLockedEnd) =
-            _getBiasSlopeAndEnd(_newLocked.effectiveStart, _newLocked.lockedBalance.start, _newLocked.lockedBalance.amount);
+            _getBiasSlopeAndEnd(_newLocked.recordedStart, _newLocked.lockedBalance.start, _newLocked.lockedBalance.amount);
 
         GlobalPoint memory lastPoint = GlobalPoint({
             bias: 0,
             slope: 0,
-            writtenTs: uint48(_newLocked.effectiveStart)
+            writtenTs: uint48(_newLocked.recordedStart)
         });
 
         if (_globalPointLatestIndex > 0) {
@@ -328,13 +328,13 @@ contract LinearDecreasingCurve is
                 t_i += checkpointInterval;
                 int256 dSlope;
 
-                if (t_i > _newLocked.effectiveStart) {
-                    t_i = _newLocked.effectiveStart;
+                if (t_i > _newLocked.recordedStart) {
+                    t_i = _newLocked.recordedStart;
                 } else {
                     dSlope = slopeChanges[t_i];
                 }
 
-                // Note: We assume _newLocked.effectiveStart >= lastPointCheckpoint
+                // Note: We assume _newLocked.recordedStart >= lastPointCheckpoint
                 lastPoint.bias = _getBias(t_i - lastPointCheckpoint, lastPoint.bias.toInt256(), lastPoint.slope);
 
                 lastPoint.slope -= dSlope;
@@ -345,7 +345,7 @@ contract LinearDecreasingCurve is
                 _globalPointLatestIndex += 1;
 
                 // Here we store intermediate points, the last one is stored at the end
-                if (t_i == _newLocked.effectiveStart) {
+                if (t_i == _newLocked.recordedStart) {
                     break;
                 } else {
                     _globalPointHistory[_globalPointLatestIndex] = lastPoint;
@@ -361,7 +361,7 @@ contract LinearDecreasingCurve is
             // be subtracted from `lastPoint.slope` in the above for loop.
             // So we make this 0 to not subtract double times.
             (oldLockedBias, oldLockedSlope, oldLockedEnd) =
-                _getBiasSlopeAndEnd(_newLocked.effectiveStart, _oldLocked.lockedBalance.start, _oldLocked.lockedBalance.amount);
+                _getBiasSlopeAndEnd(_newLocked.recordedStart, _oldLocked.lockedBalance.start, _oldLocked.lockedBalance.amount);
         }
 
         // The escrow already enforces merge restrictions via `canMerge`. `increaseUnlockTime`
@@ -385,7 +385,7 @@ contract LinearDecreasingCurve is
         uint256 tokenLatestIndex = tokenPointLatestIndex[_tokenId];
         // The token point already exists..
         if (tokenLatestIndex > 0) {
-            if (oldLockedEnd > _newLocked.effectiveStart) {
+            if (oldLockedEnd > _newLocked.recordedStart) {
                 slopeChanges[oldLockedEnd] -= oldLockedSlope;
             }
         }
@@ -397,7 +397,7 @@ contract LinearDecreasingCurve is
         TokenPoint memory tNew;
         tNew.bias = newLockedBias;
         tNew.slope = newLockedSlope;
-        tNew.writtenTs = _newLocked.effectiveStart;
+        tNew.writtenTs = _newLocked.recordedStart;
 
         // Record the latest token point.
         _storeLatestTokenPoint(tNew, _tokenId, tokenLatestIndex);
