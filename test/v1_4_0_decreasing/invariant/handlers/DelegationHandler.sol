@@ -26,6 +26,8 @@ import {
     Curve
 } from "../../versions.sol";
 import {IERC721EnumerableMintableBurnable as IERC721EMB} from "@lock/IERC721EMB.sol";
+import {RewardsDistributor, IRewardsDistributor} from "../../../../src/rewards/RewardsDistributor.sol";
+import {RewardsClaimAggregator} from "../../../../src/rewards/RewardsClaimAggregator.sol";
 
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
@@ -42,6 +44,11 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     Clock private clock;
     Curve private curve;
     GaugeVoter private voter;
+    RewardsClaimAggregator private rewardsAggregator;
+    RewardsDistributor[3] private rewardsDistributors;
+    MockERC20[3] private rewardsTokens;
+    address rewardsSender;
+    uint256[3] public triggeredRewards;
 
     MockERC20 private token;
     uint256 private maxTime;
@@ -93,6 +100,10 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         address lockNft;
         address ivotesAdapter;
         address voter;
+        address rewardsAggregator;
+        RewardsDistributor[3] rewardsDistributors;
+        MockERC20[3] rewardsTokens;
+        address rewardsSender;
     }
 
     // Number that is used to choose how many actors
@@ -112,6 +123,18 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         token = MockERC20(escrow.token());
         ivotesAdapter = EscrowIVotesAdapter(_c.ivotesAdapter);
         voter = GaugeVoter(_c.voter);
+        rewardsAggregator = RewardsClaimAggregator(_c.rewardsAggregator);
+        rewardsDistributors = [
+            RewardsDistributor(_c.rewardsDistributors[0]),
+            RewardsDistributor(_c.rewardsDistributors[1]),
+            RewardsDistributor(_c.rewardsDistributors[2])
+        ];
+        rewardsTokens = [
+            MockERC20(_c.rewardsTokens[0]),
+            MockERC20(_c.rewardsTokens[1]),
+            MockERC20(_c.rewardsTokens[2])
+        ];
+        rewardsSender = _c.rewardsSender;
 
         maxTime = _maxTime;
         checkpointInterval = _checkpointInterval;
@@ -609,6 +632,99 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
 
         vm.prank(delegatee);
         voter.reset();
+    }
+
+    // ======================== Rewards ===================
+
+    function triggerRewards(uint256 _jumpSeed, uint256 _distributorSeed, uint256 _amount) public adjustTimestamp(_jumpSeed) {
+        _amount = _bound(_amount, 1, 1_000_000 ether);
+        _distributorSeed = _bound(_distributorSeed, 0, 2);
+        RewardsDistributor distributor = rewardsDistributors[_distributorSeed];
+        MockERC20 rewardsToken = rewardsTokens[_distributorSeed];
+
+        rewardsToken.mint(address(distributor), _amount);
+
+        assert(rewardsToken.balanceOf(address(distributor)) > distributor.tokenLastBalance());
+        vm.prank(rewardsSender);
+        distributor.checkpointToken();
+
+        triggeredRewards[_distributorSeed] += _amount;
+    }
+
+    function claimDirectly(
+        uint256 _jumpSeed,
+        uint256 _ownerTokenId,
+        uint256 _senderSeed,
+        uint256 _distributorSeed
+    )
+        public adjustTimestamp(_jumpSeed)
+    {
+        address msgSender = _getAddress(_senderSeed);
+        address delegatee = ivotesAdapter.delegates(msgSender);
+        _transitionIfTooOld(delegatee);
+
+        if (ownedTokens[msgSender].length() == 0) return;
+
+        _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
+        uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
+
+        _distributorSeed = _bound(_distributorSeed, 0, 2);
+        RewardsDistributor distributor = rewardsDistributors[_distributorSeed];
+
+        vm.prank(msgSender);
+        distributor.claim(tokenId);
+    }
+
+    function claimManyDirectly(uint256 _jumpSeed, uint256 _senderSeed, uint256 _distributorSeed) public adjustTimestamp(_jumpSeed) {
+        _distributorSeed = _bound(_distributorSeed, 0, 2);
+        RewardsDistributor distributor = rewardsDistributors[_distributorSeed];
+
+        address msgSender = _getAddress(_senderSeed);
+        uint256[] memory ownerTokens = _fromSetToArray(ownedTokens[msgSender]);
+        vm.prank(msgSender);
+        distributor.claimMany(ownerTokens);
+    }
+
+    function claimThroughAggregator(
+        uint256 _jumpSeed,
+        uint256 _ownerTokenId,
+        uint256 _senderSeed
+    )
+        public adjustTimestamp(_jumpSeed)
+    {
+        address msgSender = _getAddress(_senderSeed);
+        address delegatee = ivotesAdapter.delegates(msgSender);
+        _transitionIfTooOld(delegatee);
+
+        if (ownedTokens[msgSender].length() == 0) return;
+
+        _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
+        uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
+
+        IRewardsDistributor[] memory distributors = new IRewardsDistributor[](3);
+        for(uint256 i = 0; i < 3; i++) {
+            distributors[i] = IRewardsDistributor(rewardsDistributors[i]);
+        }
+
+        vm.prank(msgSender);
+        rewardsAggregator.claim(distributors, tokenId, 52);
+    }
+
+    function claimManyThroughAggregator(uint256 _jumpSeed, uint256 _senderSeed) public adjustTimestamp(_jumpSeed) {
+        address msgSender = _getAddress(_senderSeed);
+        address delegatee = ivotesAdapter.delegates(msgSender);
+        _transitionIfTooOld(delegatee);
+
+        if (ownedTokens[msgSender].length() == 0) return;
+        uint256[] memory ownerTokens = _fromSetToArray(ownedTokens[msgSender]);
+
+        IRewardsDistributor[] memory distributors = new IRewardsDistributor[](3);
+        for(uint256 i = 0; i < 3; i++) {
+            distributors[i] = IRewardsDistributor(rewardsDistributors[i]);
+        }
+
+        vm.prank(msgSender);
+        rewardsAggregator.claimMany(distributors, ownerTokens, 52);
     }
 
     // ======================== Helper Functions ===================

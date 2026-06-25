@@ -60,8 +60,6 @@ contract RewardsDistributor is IRewardsDistributor {
         if (msg.sender != rewardsSender) revert NotRewardsSender();
 
         uint256 tokenBalance = IERC20(token).balanceOf(address(this));
-        // TODO: Move to invariant tests
-        assert(tokenBalance > tokenLastBalance);
         uint256 toDistribute = tokenBalance - tokenLastBalance;
         if (toDistribute == 0) return;
 

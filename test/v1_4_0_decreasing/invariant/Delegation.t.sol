@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {FactoryBase} from "../base/FactoryBase.sol";
+import {RewardsBase} from "../base/RewardsBase.sol";
 
 import {console2 as console} from "forge-std/console2.sol";
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
@@ -26,16 +27,19 @@ import {
     VotingEscrow
 } from "../versions.sol";
 import {IERC721EnumerableMintableBurnable as IERC721EMB} from "@lock/IERC721EMB.sol";
+import {RewardsDistributor} from "../../../src/rewards/RewardsDistributor.sol";
 
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 
 import {DelegationHandler} from "./handlers/DelegationHandler.sol";
 
-contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
+contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase, RewardsBase {
     DelegationHandler internal h;
 
     function setUp() public override {
         super.setUp();
+
+        deployRewardsDistributors(address(escrow));
 
         h = new DelegationHandler(
             DelegationHandler.Contracts({
@@ -44,17 +48,26 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
                 clock: address(clock),
                 lockNft: address(nftLock),
                 ivotesAdapter: address(ivotesAdapter),
-                voter: address(voter)
+                voter: address(voter),
+                rewardsAggregator: address(aggregator),
+                rewardsDistributors: rewardsDistributors,
+                rewardsTokens: rewardsTokens,
+                rewardsSender: rewardsSender
             }),
             address(dao),
             maxTime,
             checkpointInterval
         );
 
+        address[] memory actors = h.getActors();
+        for(uint256 i = 0; i < actors.length; i++) {
+            approveAggregator(IERC721EMB(address(nftLock)), actors[i]);
+        }
+
         targetContract(address(h));
 
         {
-            bytes4[] memory selectors = new bytes4[](16);
+            bytes4[] memory selectors = new bytes4[](21);
             selectors[0] = DelegationHandler.createLock.selector;
             selectors[1] = DelegationHandler.merge.selector;
             selectors[2] = DelegationHandler.split.selector;
@@ -71,6 +84,11 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
             selectors[13] = DelegationHandler.unlockPermanent.selector;
             selectors[14] = DelegationHandler.increaseAmount.selector;
             selectors[15] = DelegationHandler.increaseUnlockTime.selector;
+            selectors[16] = DelegationHandler.triggerRewards.selector;
+            selectors[17] = DelegationHandler.claimDirectly.selector;
+            selectors[18] = DelegationHandler.claimManyDirectly.selector;
+            selectors[19] = DelegationHandler.claimThroughAggregator.selector;
+            selectors[20] = DelegationHandler.claimManyThroughAggregator.selector;
             FuzzSelector memory a = FuzzSelector(address(h), selectors);
 
             targetSelector(a);
@@ -210,5 +228,24 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase {
                 assertGt(start, 0, "Non permanent locks should have non zero start");
             }
         }
+    }
+
+    function invariant_Rewards() public view {
+        address[] memory actors = h.getActors();
+
+        for(uint256 i = 0; i < 3; i++) {
+            RewardsDistributor distributor = rewardsDistributors[i];
+            MockERC20 rewardsToken = rewardsTokens[i];
+
+            uint256 distributorRewardsBalance = rewardsToken.balanceOf(address(distributor));
+            assertGe(distributorRewardsBalance, distributor.tokenLastBalance(), "Distributor last balance too high");
+
+            uint256 actorsRewardsTotalBalance;
+            for(uint256 j = 0; j < actors.length; j++) {
+                actorsRewardsTotalBalance += rewardsToken.balanceOf(actors[j]);
+            }
+            assertEq(h.triggeredRewards(i), distributorRewardsBalance + actorsRewardsTotalBalance, "Rewards balance mismatch");
+        }
+
     }
 }

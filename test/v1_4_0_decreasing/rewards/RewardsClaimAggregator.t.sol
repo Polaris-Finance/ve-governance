@@ -4,35 +4,26 @@ pragma solidity ^0.8.17;
 import {IERC721EnumerableMintableBurnable as IERC721EMB} from "@lock/IERC721EMB.sol";
 
 import {IVotingEscrowDecreasing as IVotingEscrow} from "../../../src/escrow/IVotingEscrowDecreasing.sol";
-import {RewardsDistributor, IRewardsDistributor} from "../../../src/rewards/RewardsDistributor.sol";
+import {IRewardsDistributor} from "../../../src/rewards/IRewardsDistributor.sol";
 import {RewardsClaimAggregator} from "../../../src/rewards/RewardsClaimAggregator.sol";
 
 import {MockERC20} from "@mocks/MockERC20.sol";
 import {EscrowBase} from "../base/EscrowBase.sol";
+import {RewardsBase} from "../base/RewardsBase.sol";
 
-contract RewardsClaimAggregatorTest is EscrowBase {
+contract RewardsClaimAggregatorTest is EscrowBase, RewardsBase {
     /// @dev Use same value as in voting escrow
     uint256 constant MAXTIME = 208 weeks;
     uint256 constant TOKEN_1M = 1e24; // 1e6 = 1M tokens with 18 decimals
     uint256 constant REWARD_AMOUNT = 12e18;
 
-    address rewardsSender;
     address owner1;
     address owner2;
 
     IERC721EMB public lockNFT;
 
-    RewardsClaimAggregator public aggregator;
-    RewardsDistributor public distributor1;
-    RewardsDistributor public distributor2;
-    RewardsDistributor public distributor3;
-    MockERC20 rewardsToken1;
-    MockERC20 rewardsToken2;
-    MockERC20 rewardsToken3;
-
     function setUp() public override {
         super.setUp();
-        rewardsSender = makeAddr("Rewards Sender");
         owner1 = makeAddr("Owner1");
         owner2 = makeAddr("Owner2");
         mintAndApproveEscrow(owner1, 10000000e18);
@@ -40,24 +31,12 @@ contract RewardsClaimAggregatorTest is EscrowBase {
 
         vm.warp(604800);
 
-        rewardsToken1 = new MockERC20();
-        rewardsToken2 = new MockERC20();
-        rewardsToken3 = new MockERC20();
-
-        aggregator = new RewardsClaimAggregator(address(escrow));
-        distributor1 = new RewardsDistributor(address(escrow), address(rewardsToken1), rewardsSender);
-        distributor2 = new RewardsDistributor(address(escrow), address(rewardsToken2), rewardsSender);
-        distributor3 = new RewardsDistributor(address(escrow), address(rewardsToken3), rewardsSender);
-        vm.label(address(distributor1), "Distributor1");
-        vm.label(address(distributor2), "Distributor2");
-        vm.label(address(distributor3), "Distributor3");
+        deployRewardsDistributors(address(escrow));
 
         // Approve aggregator so it can claim
         lockNFT = IERC721EMB(escrow.lockNFT());
-        vm.prank(owner1);
-        lockNFT.setApprovalForAll(address(aggregator), true);
-        vm.prank(owner2);
-        lockNFT.setApprovalForAll(address(aggregator), true);
+        approveAggregator(lockNFT, owner1);
+        approveAggregator(lockNFT, owner2);
     }
 
     function testInitialize() public view {
