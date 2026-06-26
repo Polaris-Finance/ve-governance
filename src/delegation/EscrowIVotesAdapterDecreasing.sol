@@ -24,9 +24,9 @@ import {
 } from "@aragon/osx-commons-contracts/src/permission/auth/DaoAuthorizableUpgradeable.sol";
 
 import {
-    IVotingEscrowIncreasingV1_2_0 as IVotingEscrow
-} from "@escrow/IVotingEscrowIncreasing_v1_2_0.sol";
-import {VotingEscrowV1_2_0 as VotingEscrow} from "@escrow/VotingEscrowIncreasing_v1_2_0.sol";
+    IVotingEscrowDecreasing as IVotingEscrow
+} from "@escrow/IVotingEscrowDecreasing.sol";
+import {VotingEscrowDecreasing as VotingEscrow} from "@escrow/VotingEscrowDecreasing.sol";
 
 import {IClockV1_2_0 as IClock} from "@clock/IClock_v1_2_0.sol";
 
