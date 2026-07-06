@@ -759,8 +759,10 @@ contract VotingEscrowDecreasing is
         _locked[_tokenId] = LockedBalanceDecreasing(LockedBalance(0, 0), 0);
         totalLocked -= value;
 
+        // Clean up delegation state before burning.
+        _moveDelegateVotes(sender, address(0), _tokenId, oldLocked);
+
         // Burn the NFT and transfer the tokens to the user
-        // This will call back `_moveDelegateVotes` to clean up
         IERC721EMB(lockNFT).burn(_tokenId);
 
         IERC20(token).safeTransfer(sender, value);
