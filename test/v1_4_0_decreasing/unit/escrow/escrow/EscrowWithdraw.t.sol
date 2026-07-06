@@ -159,10 +159,8 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         assertEq(escrow.lastLockId(), 3);
     }
 
-    /// @dev Regression: withdrawing a lock that was delegated must clear the
-    /// account's delegation counter. `withdraw()` burns the NFT, but burning
-    /// does NOT route through `Lock._transfer` (where `moveDelegateVotes` is
-    /// wired), so the escrow must undelegate explicitly. Without that, the
+    /// Withdrawing a lock that was delegated must clear the
+    /// account's delegation counter. Without that, the
     /// `numberOfDelegatedTokens` counter stays stuck above zero forever, which
     /// permanently blocks `setDelegateAddress()` for that account (it requires
     /// the counter to be 0).
