@@ -221,7 +221,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         address newDelegatee = _getAddress(_delegateeSeed);
         address currentDelegatee = ivotesAdapter.delegates(msgSender);
 
-        _assumeNonZeroVotingPower(msgSender);
+        _assumeNonExpired(msgSender);
 
         _transitionIfTooOld(newDelegatee);
         _transitionIfTooOld(currentDelegatee);
@@ -260,7 +260,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         );
 
         if (tokens.length == 0) return;
-        _assumeNonZeroVotingPower(tokens);
+        _assumeNonExpired(tokens);
 
         _transitionIfTooOld(delegatee);
         vm.prank(msgSender);
@@ -905,14 +905,14 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         return actors[_bound(_seedAddr, 0, actors.length - 1)];
     }
 
-    function _assumeNonZeroVotingPower(address _sender) internal view {
+    function _assumeNonExpired(address _sender) internal view {
         uint256[] memory tokenIds = VotingEscrow(escrow).ownedTokens(_sender);
-        _assumeNonZeroVotingPower(tokenIds);
+        _assumeNonExpired(tokenIds);
     }
 
-    function _assumeNonZeroVotingPower(uint256[] memory _tokenIds) internal view {
+    function _assumeNonExpired(uint256[] memory _tokenIds) internal view {
         for (uint256 i = 0; i < _tokenIds.length; i++) {
-            vm.assume(escrow.votingPower(_tokenIds[i]) > 0);
+            vm.assume(!escrow.isLockExpired(_tokenIds[i]));
         }
     }
 

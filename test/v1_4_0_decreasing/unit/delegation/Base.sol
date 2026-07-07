@@ -29,6 +29,7 @@ import {FixedPointBase} from "../../base/FixedPointBase.sol";
 
 contract EscrowVotingPowerMock is IDelegateUpdateVotingPower {
     function updateVotingPower(address a, address b) external {}
+    function isLockExpired(uint256 _tokenId) external view returns (bool) {}
 }
 
 contract MockLockNFT {
@@ -86,7 +87,7 @@ contract Base is
         _mockOwner(address(this));
         // _mockPermissions();
 
-        uint256 maxTime = IClock(clock).epochDuration() * CurveConstantLib.MAX_EPOCHS;
+        maxTime = IClock(clock).epochDuration() * CurveConstantLib.MAX_EPOCHS;
 
         (int256 constantCoefficient, int256 linearDenominator, ) = CurveConstantLib.getParams();
         FixedPointBase.initialize(maxTime, clock.checkpointInterval(), linearDenominator);
@@ -258,6 +259,14 @@ contract Base is
             address(escrow),
             abi.encodeWithSelector(VotingEscrow.votingPower.selector, (_tokenId)),
             abi.encode(_vp)
+        );
+    }
+
+    function _mockIsLockExpired(uint256 _tokenId, bool _value) internal {
+        vm.mockCall(
+            address(escrow),
+            abi.encodeWithSelector(VotingEscrow.isLockExpired.selector, (_tokenId)),
+            abi.encode(_value)
         );
     }
 

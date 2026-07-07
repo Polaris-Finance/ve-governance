@@ -145,7 +145,7 @@ contract EscrowIVotesAdapterDecreasing is
         emit DelegateChanged(sender, currentDelegatee, _delegatee);
     }
 
-    /// @dev Note that `_tokenIds` must be either owned or approved to sender and tokens must not be delegated yet.
+    /// @dev Note that `_tokenIds` must be owned by sender and tokens must not be delegated yet.
     /// @param _tokenIds The array of token ids that will be delegated to the current delegatee of `sender`.
     function delegate(
         uint256[] memory _tokenIds
@@ -242,11 +242,9 @@ contract EscrowIVotesAdapterDecreasing is
                 }
             }
 
-            // Ensure that voting power is greater than 0.
-            // This can not be figured out with only `locked` data, as
-            // token might exist, but might not be warm.
-            if (IVotingEscrow(escrow).votingPower(tokenId) == 0) {
-                revert VotingPowerZero(tokenId);
+            // Ensure that lock is not expired
+            if (IVotingEscrow(escrow).isLockExpired(tokenId)) {
+                revert LockExpired(tokenId);
             }
 
             _setDelegated(tokenId, true);

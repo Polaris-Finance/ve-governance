@@ -24,6 +24,9 @@ contract TestCreateLock_DelegationAndVoter is
     IEscrowCurveGlobalStorage,
     EscrowBase
 {
+    address alice = makeAddr("alice");
+    address bob = makeAddr("bob");
+
     function setUp() public override {
         super.setUp();
 
@@ -33,7 +36,6 @@ contract TestCreateLock_DelegationAndVoter is
     function test_CreateLock_CorrectlyUpdatesDelegationAndVotes() public {
         vm.warp(1);
 
-        address alice = address(0x123);
         uint256 lock1Amount = getFlooredAmount(15e18);
         uint256 lock2Amount = getFlooredAmount(35e18);
 
@@ -79,5 +81,55 @@ contract TestCreateLock_DelegationAndVoter is
         assertEq(voter.votes(alice, gauge), bias(lock1Amount, block.timestamp - checkpointTs - 1 weeks));
         assertTrue(ivotesAdapter.tokenIsDelegated(2));
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 2);
+    }
+
+    function test_CreateLock_AndDelegatesImmediately() public {
+        vm.warp(1);
+
+        vm.prank(bob);
+        ivotesAdapter.delegate(bob);
+
+        uint256 lock1Amount = getFlooredAmount(15e18);
+
+        token.transfer(alice, lock1Amount);
+
+        address gauge = address(0x777);
+
+        // activate cp & warp to an active window
+        vm.warp(2 weeks + 1 hours + 1);
+        voter.createGauge(gauge, "metadata");
+
+        uint256 checkpointTs = weekStartTs(block.timestamp);
+
+        // alice creates lock and delegates
+        vm.startPrank(alice);
+
+        token.approve(address(escrow), lock1Amount);
+        uint256 tokenId = escrow.createLock(lock1Amount, MAX_TIME);
+        nftLock.approve(bob, tokenId);
+
+        ivotesAdapter.setDelegateAddress(bob);
+        uint256[] memory delegatedIds = new uint256[](1);
+        delegatedIds[0] = tokenId;
+        ivotesAdapter.delegate(delegatedIds);
+
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        // Bob now votes with power delegated from alice token
+        vm.startPrank(bob);
+        IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
+        votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
+        voter.vote(votes);
+        vm.stopPrank();
+
+        uint256 bias = bias(lock1Amount, block.timestamp - checkpointTs);
+        assertEq(ivotesAdapter.getVotes(alice), 0);
+        assertEq(voter.votes(alice, gauge), 0);
+        assertEq(ivotesAdapter.getVotes(bob), bias);
+        assertEq(voter.votes(bob, gauge), bias);
+        assertTrue(ivotesAdapter.tokenIsDelegated(tokenId));
+        assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
     }
 }

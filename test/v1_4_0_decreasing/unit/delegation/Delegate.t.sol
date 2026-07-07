@@ -145,16 +145,16 @@ contract TestDelegate is Base {
         dg.delegate(new uint256[](0));
     }
 
-    function testRevert_IfVotingPowerZeroAtLeastForOneToken() public {
+    function testRevert_IfLockExpiredAtLeastForOneToken() public {
+        vm.warp(block.timestamp + maxTime + 1);
         dg.setDelegateAddress(alice);
 
         _mockLocked(multiIds[0], 10, weekStartTs(block.timestamp));
-        _mockLocked(multiIds[1], 10, weekStartTs(block.timestamp));
+        // This lock is expired
+        _mockLocked(multiIds[1], 10, weekStartTs(block.timestamp) - maxTime);
+        _mockIsLockExpired(multiIds[1], true);
 
-        _mockVotingPower(multiIds[0], 1);
-        _mockVotingPower(multiIds[1], 0);
-
-        vm.expectRevert(abi.encodeWithSelector(VotingPowerZero.selector, multiIds[1]));
+        vm.expectRevert(abi.encodeWithSelector(LockExpired.selector, multiIds[1]));
         dg.delegate(multiIds);
     }
 
