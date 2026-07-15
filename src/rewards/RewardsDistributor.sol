@@ -14,8 +14,8 @@ import {IRewardsDistributor} from "./IRewardsDistributor.sol";
  * @author velodrome.finance, @figs999, @pegahcarter
  * @author polaris
  */
-// TODO: Rewards are lost for epochs where total supply is zero
-// TODO: Rewards are lost for the from token after merge?
+// @dev Warning: Rewards are lost for epochs where total supply is zero
+// @dev Warning: Rewards are lost for the from token after merge
 contract RewardsDistributor is IRewardsDistributor {
     using SafeERC20 for IERC20;
     /// @inheritdoc IRewardsDistributor

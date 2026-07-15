@@ -440,7 +440,6 @@ contract VotingEscrowDecreasing is
     function unlockPermanent(uint256 _tokenId) external whenNotPaused {
         (address sender, address owner) = _checkOwner(_tokenId);
 
-        // TODO: if (voted[_tokenId]) revert AlreadyVoted();
         LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
         LockedBalanceDecreasing memory newLocked;
         _requireLockPermanent(oldLocked);
