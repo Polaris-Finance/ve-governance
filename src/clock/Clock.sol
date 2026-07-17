@@ -20,13 +20,20 @@ contract Clock is IClock, DaoAuthorizable, UUPSUpgradeable {
     // gauge-voting cycle plays out in days, not weeks. Constraints preserved:
     // VOTE_DURATION <= EPOCH_DURATION and VOTE_DURATION > 2 * VOTE_WINDOW_BUFFER. The
     // curve's epoch length in CurveConstantLibDecreasing.sol is compressed to match.
-    // Mainnet must revert to the upstream 2-week values before audit.
+    //
+    // CHECKPOINT_INTERVAL is compressed further, to 1 hour: a lock's voting power activates
+    // at the next checkpoint boundary, so newly created locks (incl. the genesis veNFTs) go
+    // live within <=1 hour instead of <=1 day. Cost: the global-supply catch-up loop is
+    // capped at 255 intervals, so the system must be touched (any lock op by anyone) at least
+    // once per ~10.6 days or the total-supply curve stops updating — trivially satisfied on a
+    // bot-active testnet. Upstream default is 1 week (~5yr headroom, sized for real locks).
+    // Mainnet must revert to the upstream 2-week / 1-week values before audit.
 
     /// @dev Epoch encompasses a voting and non-voting period
     uint256 internal constant EPOCH_DURATION = 2 days;
 
     /// @dev Checkpoint interval is the time between each voting checkpoint
-    uint256 internal constant CHECKPOINT_INTERVAL = 1 days;
+    uint256 internal constant CHECKPOINT_INTERVAL = 1 hours;
 
     /// @dev Voting duration is the time during which votes can be cast
     uint256 internal constant VOTE_DURATION = 1 days;
