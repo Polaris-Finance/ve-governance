@@ -18,8 +18,11 @@ import {IRewardsDistributor} from "./IRewardsDistributor.sol";
 // TODO: Rewards are lost for the from token after merge?
 contract RewardsDistributor is IRewardsDistributor {
     using SafeERC20 for IERC20;
+    // Polaris testnet fast-governance: the reward-distribution period is compressed to 2 days
+    // to match Clock.EPOCH_DURATION, so veNFT reward cycles turn over on the same fast cadence
+    // as gauge/governance epochs (upstream: 1 week). Mainnet must revert to 1 weeks.
     /// @inheritdoc IRewardsDistributor
-    uint256 public constant WEEK = 1 weeks;
+    uint256 public constant WEEK = 2 days;
     // Iterations for the claim loop
     uint256 public constant CLAIM_MAX_WEEKS = 52;
     // We cap the checkpointing loop to avoid gas issues. It is unlikely that no rewards arrive for more than 4 years,
