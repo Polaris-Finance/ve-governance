@@ -16,17 +16,25 @@ import {
 contract ClockV1_2_0 is IClockV1_2_0, DaoAuthorizable, UUPSUpgradeable {
     bytes32 public constant CLOCK_ADMIN_ROLE = keccak256("CLOCK_ADMIN_ROLE");
 
+    // NOTE (Polaris testnet fast-governance): THIS is the Clock variant the deploy actually
+    // ships — GaugeVoterSetupDecreasing imports {ClockV1_2_0 as Clock}. Timings compressed
+    // identically to clock/Clock.sol: 2-day epoch, 1-day vote, 1-hour checkpoint (fast veNFT
+    // activation; supply catch-up loop caps at 255 intervals ≈ 10.6 days — a bot-active
+    // testnet touches locks far more often), 10-min window buffer. Constraints preserved:
+    // VOTE_DURATION <= EPOCH_DURATION and VOTE_DURATION > 2 * VOTE_WINDOW_BUFFER.
+    // Mainnet must revert to the upstream 2-week / 1-week / 1-week / 1-hour values.
+
     /// @dev Epoch encompasses a voting and non-voting period
-    uint256 internal constant EPOCH_DURATION = 2 weeks;
+    uint256 internal constant EPOCH_DURATION = 2 days;
 
     /// @dev Checkpoint interval is the time between each voting checkpoint
-    uint256 internal constant CHECKPOINT_INTERVAL = 1 weeks;
+    uint256 internal constant CHECKPOINT_INTERVAL = 1 hours;
 
     /// @dev Voting duration is the time during which votes can be cast
-    uint256 internal constant VOTE_DURATION = 1 weeks;
+    uint256 internal constant VOTE_DURATION = 1 days;
 
     /// @dev Opens and closes the voting window slightly early to avoid timing attacks
-    uint256 internal constant VOTE_WINDOW_BUFFER = 1 hours;
+    uint256 internal constant VOTE_WINDOW_BUFFER = 10 minutes;
 
     /*///////////////////////////////////////////////////////////////
                             Initialization
