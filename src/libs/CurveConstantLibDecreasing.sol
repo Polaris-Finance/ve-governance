@@ -9,14 +9,16 @@ int256 constant INITIAL_BIAS_MULTIPLIER = 1;
 /// @title CurveConstantLib
 /// @notice Precomputed coefficients for escrow curve
 /// Below are the shared coefficients for the linear terms
-/// @dev This curve goes from 1x -> 0x voting power over a 4 year time horizon
-/// Epochs are still 2 weeks long
+/// @dev This curve goes from 1x -> 0x voting power over MAX_EPOCHS * epoch length.
+/// Polaris testnet fast-governance: epoch length is compressed to 2 days (matching
+/// Clock.EPOCH_DURATION), so the horizon is 104 * 2 days = 208 days instead of 4 years.
+/// The "2 days" below MUST stay equal to Clock.EPOCH_DURATION or the ramp desyncs.
 library CurveConstantLib {
     int256 internal constant SHARED_CONSTANT_COEFFICIENT = INITIAL_BIAS_MULTIPLIER * 1e18;
 
     /// @dev straight line so the curve is decreasing only in the linear term
-    /// - 1 / (104 * SECONDS_IN_2_WEEKS)
-    int256 internal constant SHARED_LINEAR_DENOMINATOR = -int256(MAX_EPOCHS) * 2 weeks;
+    /// - 1 / (MAX_EPOCHS * epoch length)
+    int256 internal constant SHARED_LINEAR_DENOMINATOR = -int256(MAX_EPOCHS) * 2 days;
     int256 internal constant SHARED_LINEAR_COEFFICIENT = 1e18 / SHARED_LINEAR_DENOMINATOR;
 
     /// @dev this curve is linear

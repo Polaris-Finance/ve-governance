@@ -15,17 +15,24 @@ import {
 contract Clock is IClock, DaoAuthorizable, UUPSUpgradeable {
     bytes32 public constant CLOCK_ADMIN_ROLE = keccak256("CLOCK_ADMIN_ROLE");
 
+    // NOTE (Polaris testnet fast-governance): epoch/vote timings are compressed from the
+    // upstream 2-week epoch / 1-week vote to a 2-day epoch / 1-day vote so a full
+    // gauge-voting cycle plays out in days, not weeks. Constraints preserved:
+    // VOTE_DURATION <= EPOCH_DURATION and VOTE_DURATION > 2 * VOTE_WINDOW_BUFFER. The
+    // curve's epoch length in CurveConstantLibDecreasing.sol is compressed to match.
+    // Mainnet must revert to the upstream 2-week values before audit.
+
     /// @dev Epoch encompasses a voting and non-voting period
-    uint256 internal constant EPOCH_DURATION = 2 weeks;
+    uint256 internal constant EPOCH_DURATION = 2 days;
 
     /// @dev Checkpoint interval is the time between each voting checkpoint
-    uint256 internal constant CHECKPOINT_INTERVAL = 1 weeks;
+    uint256 internal constant CHECKPOINT_INTERVAL = 1 days;
 
     /// @dev Voting duration is the time during which votes can be cast
-    uint256 internal constant VOTE_DURATION = 1 weeks;
+    uint256 internal constant VOTE_DURATION = 1 days;
 
     /// @dev Opens and closes the voting window slightly early to avoid timing attacks
-    uint256 internal constant VOTE_WINDOW_BUFFER = 1 hours;
+    uint256 internal constant VOTE_WINDOW_BUFFER = 10 minutes;
 
     /*///////////////////////////////////////////////////////////////
                             Initialization
