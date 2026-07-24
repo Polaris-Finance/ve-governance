@@ -119,7 +119,16 @@ contract RewardsDistributor is IRewardsDistributor {
         // case where token exists but has never been claimed
         if (weekCursor == 0) {
             IEscrowCurve.TokenPoint memory userPoint = curve.tokenPointHistory(_tokenId, 1);
-            weekCursor = userPoint.writtenTs;
+            // Round the activation timestamp UP onto the WEEK grid:
+            // writtenTs is an escrow CLOCK checkpoint (its grid can differ
+            // from WEEK — e.g. hourly checkpoints vs 2-day reward weeks on
+            // compressed configs), while tokensPerWeek buckets are keyed on
+            // WEEK multiples. An unrounded cursor stays off-grid forever and
+            // reads only empty slots, permanently stranding the lock's
+            // rewards. Rounding up (not down) also skips the partial
+            // activation week, whose week-start power snapshot is zero for
+            // this lock anyway. (Matches Curve's FeeDistributor.)
+            weekCursor = (uint256(userPoint.writtenTs) + WEEK - 1) / WEEK * WEEK;
             weekCursorStart = weekCursor;
         }
         if (weekCursor < START_WEEK_TIME) weekCursor = START_WEEK_TIME;
