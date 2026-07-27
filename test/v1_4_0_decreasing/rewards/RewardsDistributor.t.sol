@@ -65,8 +65,8 @@ contract RewardsDistributorTest is EscrowBase {
     }
 
     function testInitialize() public view {
-        assertEq(distributor.START_WEEK_TIME(), 604800);
-        assertEq(distributor.lastTokenWeekTime(), 604800);
+        assertEq(distributor.START_INTERVAL_TIME(), 604800);
+        assertEq(distributor.lastTokenIntervalTime(), 604800);
         assertEq(distributor.token(), address(rewardsToken));
         assertEq(address(distributor.ve()), address(escrow));
     }

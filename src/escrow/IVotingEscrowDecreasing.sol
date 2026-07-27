@@ -80,6 +80,8 @@ interface IVotingEscrowCore is
     /// @notice Address of the lock receipt NFT.
     function lockNFT() external view returns (address);
 
+    function clock() external view returns (address);
+
     /// @notice Total underlying tokens deposited in the contract
     function totalLocked() external view returns (uint256);
 
