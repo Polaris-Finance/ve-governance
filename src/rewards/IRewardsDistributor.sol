@@ -11,16 +11,16 @@ interface IRewardsDistributor {
     error NotApprovedOrOwner();
 
     /// @notice 7 days in seconds
-    function WEEK() external view returns (uint256);
+    function CHECKPOINT_INTERVAL() external view returns (uint256);
 
-    /// @notice Timestamp of the start of the week of contract creation
-    function START_WEEK_TIME() external view returns (uint256);
+    /// @notice Timestamp of the start of the interval of contract creation
+    function START_INTERVAL_TIME() external view returns (uint256);
 
     /// @notice Timestamp of most recent claim of tokenId
     function timeCursorOf(uint256 tokenId) external view returns (uint256);
 
-    /// @notice The last week RewardsSender has called checkpointToken()
-    function lastTokenWeekTime() external view returns (uint256);
+    /// @notice The last interval RewardsSender has called checkpointToken()
+    function lastTokenIntervalTime() external view returns (uint256);
 
     /// @notice Interface of VotingEscrow.sol
     function ve() external view returns (IVotingEscrow);
@@ -47,9 +47,9 @@ interface IRewardsDistributor {
     /// @notice Returns the amount of rebases claimable for a given token ID
     /// @dev Allows claiming of rebases up to 50 epochs old
     /// @param tokenId The token ID to check
-    /// @param maxWeeks Max week iterations, to avoid running out of gas
+    /// @param maxIntervals Max interval iterations, to avoid running out of gas
     /// @return The amount of rebases claimable for the given token ID
-    function claimable(uint256 tokenId, uint256 maxWeeks) external view returns (uint256);
+    function claimable(uint256 tokenId, uint256 maxIntervals) external view returns (uint256);
 
     /// @notice Claims rebases for a given token ID
     /// @dev Allows claiming of rebases up to 50 epochs old
@@ -61,9 +61,9 @@ interface IRewardsDistributor {
     /// @dev Allows claiming of rebases up to 50 epochs old
     /// @param tokenId The token ID to claim for
     /// @param receiver Address to send the claimed tokens to
-    /// @param maxWeeks Max week iterations, to avoid running out of gas
+    /// @param maxIntervals Max interval iterations, to avoid running out of gas
     /// @return The amount of rebases claimed
-    function claim(uint256 tokenId, address receiver, uint256 maxWeeks) external returns (uint256);
+    function claim(uint256 tokenId, address receiver, uint256 maxIntervals) external returns (uint256);
 
     /// @notice Claims rebases for a list of token IDs
     /// @param tokenIds The token IDs to claim for
@@ -73,7 +73,7 @@ interface IRewardsDistributor {
     /// @notice Claims rebases for a list of token IDs
     /// @param tokenIds The token IDs to claim for
     /// @param receiver Address to send the claimed tokens to
-    /// @param maxWeeks Max week iterations per token, to avoid running out of gas
+    /// @param maxIntervals Max interval iterations per token, to avoid running out of gas
     /// @return Whether or not the claim succeeded
-    function claimMany(uint256[] calldata tokenIds, address receiver, uint256 maxWeeks) external returns (bool);
+    function claimMany(uint256[] calldata tokenIds, address receiver, uint256 maxIntervals) external returns (bool);
 }
