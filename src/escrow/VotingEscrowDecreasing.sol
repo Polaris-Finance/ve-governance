@@ -838,5 +838,5 @@ contract VotingEscrowDecreasing is
     function _authorizeUpgrade(address) internal virtual override auth(ESCROW_ADMIN_ROLE) {}
 
     /// @dev Reserved storage space to allow for layout changes in the future.
-    uint256[36] private __gap;
+    uint256[39] private __gap;
 }
