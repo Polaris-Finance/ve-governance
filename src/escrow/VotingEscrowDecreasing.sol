@@ -746,7 +746,7 @@ contract VotingEscrowDecreasing is
 
     /// @notice Withdraws tokens from the contract
     function withdraw(uint256 _tokenId) external nonReentrant whenNotPaused {
-        (address sender,) = _checkOwner(_tokenId);
+        (address sender, address owner) = _checkOwner(_tokenId);
 
         // Cannot withdraw until lock expires
         if (!isLockExpired(_tokenId)) revert CannotWithdrawUntilExpiry();
@@ -759,7 +759,7 @@ contract VotingEscrowDecreasing is
         totalLocked -= value;
 
         // Clean up delegation state before burning.
-        _moveDelegateVotes(sender, address(0), _tokenId, oldLocked);
+        _moveDelegateVotes(owner, address(0), _tokenId, oldLocked);
 
         // Burn the NFT and transfer the tokens to the user
         IERC721EMB(lockNFT).burn(_tokenId);
