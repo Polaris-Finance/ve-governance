@@ -42,28 +42,31 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
 
         uint256 tokenId = escrow.createLock(100e18, MAX_TIME);
         nftLock.approve(address(escrow), tokenId);
+        uint256 lockStart = weekStartTs(block.timestamp);
+        uint256 lockEnd = lockStart + MAX_TIME;
 
         // Cannot withdraw even if it's not active until start of next checkpoint
-        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
-        escrow.withdraw(tokenId);
-
-        // Create again
-        token.approve(address(escrow), 100e18);
-        tokenId = escrow.createLock(100e18, MAX_TIME);
-        nftLock.approve(address(escrow), tokenId);
-
-        // Not expired
-        vm.warp(weekStartTs(block.timestamp));
+        assertLt(block.timestamp, lockStart, "Not started yet");
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
 
         // Not expired
-        vm.warp(block.timestamp + 1 weeks);
+        vm.warp(lockStart);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
+        escrow.withdraw(tokenId);
+
+        // Not expired
+        vm.warp(lockStart + 1);
+        vm.expectRevert(CannotWithdrawUntilExpiry.selector);
+        escrow.withdraw(tokenId);
+
+        // Not expired
+        vm.warp(lockEnd - 1);
         vm.expectRevert(CannotWithdrawUntilExpiry.selector);
         escrow.withdraw(tokenId);
 
         // Finally expired
-        vm.warp(block.timestamp + MAX_TIME);
+        vm.warp(lockEnd);
         escrow.withdraw(tokenId);
     }
 
