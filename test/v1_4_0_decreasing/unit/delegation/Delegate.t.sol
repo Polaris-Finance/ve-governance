@@ -27,6 +27,22 @@ contract TestDelegate is Base {
         dg.delegate(address(1));
     }
 
+    function testRevert_IfLockExpiredAtLeastForOneToken_IVotesDelegate() public {
+        vm.warp(block.timestamp + maxTime + 1);
+        dg.setDelegateAddress(alice);
+        dg.setAutoDelegationDisabled(false);
+
+        _mockLocked(multiIds[0], 10, weekStartTs(block.timestamp));
+        // This lock is expired
+        _mockLocked(multiIds[1], 10, weekStartTs(block.timestamp) - maxTime);
+        _mockIsLockExpiredAtNextCheckpoint(multiIds[1], true);
+
+        _mockOwnedTokens(sender, multiIds);
+
+        vm.expectRevert(abi.encodeWithSelector(LockExpired.selector, multiIds[1]));
+        dg.delegate(bob);
+    }
+
     function test_Sets_DelegateeForFirstTime() public {
         _mockOwnedTokens(address(this), new uint256[](0));
         vm.expectEmit();

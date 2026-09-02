@@ -30,6 +30,7 @@ import {FixedPointBase} from "../../base/FixedPointBase.sol";
 contract EscrowVotingPowerMock is IDelegateUpdateVotingPower {
     function updateVotingPower(address a, address b) external {}
     function isLockExpiredAtNextCheckpoint(uint256 _tokenId) external view returns (bool) {}
+    function ownedTokens(address _owner) external view returns (uint256[] memory tokenIds) {}
 }
 
 contract MockLockNFT {
