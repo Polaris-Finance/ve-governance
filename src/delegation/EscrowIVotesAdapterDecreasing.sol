@@ -243,7 +243,7 @@ contract EscrowIVotesAdapterDecreasing is
             }
 
             // Ensure that lock is not expired
-            if (IVotingEscrow(escrow).isLockExpired(tokenId)) {
+            if (IVotingEscrow(escrow).isLockExpiredAtNextCheckpoint(tokenId)) {
                 revert LockExpired(tokenId);
             }
 

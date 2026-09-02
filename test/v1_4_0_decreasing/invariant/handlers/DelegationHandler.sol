@@ -352,7 +352,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
         uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
         vm.assume(!isPermanentLock[tokenId]);
-        vm.assume(!escrow.isLockExpired(tokenId));
+        vm.assume(!escrow.isLockExpiredAtNextCheckpoint(tokenId));
 
         vm.startPrank(msgSender);
         escrow.lockPermanent(tokenId);
@@ -402,7 +402,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
 
         _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
         uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
-        vm.assume(!escrow.isLockExpired(tokenId));
+        vm.assume(!escrow.isLockExpiredAtNextCheckpoint(tokenId));
 
         // mint tokens to sender and approve to escrow
         // so escrow can transfer it from sender.
@@ -430,7 +430,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         _ownerTokenId = _bound(_ownerTokenId, 0, ownedTokens[msgSender].length() - 1);
         uint256 tokenId = ownedTokens[msgSender].at(_ownerTokenId);
         vm.assume(!isPermanentLock[tokenId]);
-        vm.assume(!escrow.isLockExpired(tokenId));
+        vm.assume(!escrow.isLockExpiredAtNextCheckpoint(tokenId));
         uint256 virtualStart = escrow.locked(tokenId).start;
         uint256 currentDuration = virtualStart + maxTime - clock.nextCheckpointTs();
         vm.assume(currentDuration + 1 weeks <= maxTime);
@@ -912,7 +912,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
 
     function _assumeNonExpired(uint256[] memory _tokenIds) internal view {
         for (uint256 i = 0; i < _tokenIds.length; i++) {
-            vm.assume(!escrow.isLockExpired(_tokenIds[i]));
+            vm.assume(!escrow.isLockExpiredAtNextCheckpoint(_tokenIds[i]));
         }
     }
 

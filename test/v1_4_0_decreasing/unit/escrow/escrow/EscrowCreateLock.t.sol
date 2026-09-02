@@ -362,10 +362,10 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
 
         uint256 tokenId = escrow.createLock(1e18, MAX_TIME);
 
-        assertFalse(escrow.isLockExpired(tokenId), "Lock should not be expired");
+        assertFalse(escrow.isLockExpiredAtNextCheckpoint(tokenId), "Lock should not be expired");
 
         vm.warp(block.timestamp + MAX_TIME);
-        assertTrue(escrow.isLockExpired(tokenId), "Lock should be expired");
+        assertTrue(escrow.isLockExpiredAtNextCheckpoint(tokenId), "Lock should be expired");
     }
 
     function testIsLockExpiredPermanent() public {
@@ -375,13 +375,13 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
         uint256 tokenId = escrow.createLock(1e18, MAX_TIME);
         escrow.lockPermanent(tokenId);
 
-        assertFalse(escrow.isLockExpired(tokenId), "Lock should not be expired");
+        assertFalse(escrow.isLockExpiredAtNextCheckpoint(tokenId), "Lock should not be expired");
 
         vm.warp(block.timestamp + MAX_TIME);
-        assertFalse(escrow.isLockExpired(tokenId), "Lock should not be expired even after max time");
+        assertFalse(escrow.isLockExpiredAtNextCheckpoint(tokenId), "Lock should not be expired even after max time");
 
         vm.warp(block.timestamp + MAX_TIME);
-        assertFalse(escrow.isLockExpired(tokenId), "Lock should not be expired even after another max time");
+        assertFalse(escrow.isLockExpiredAtNextCheckpoint(tokenId), "Lock should not be expired even after another max time");
     }
 }
 

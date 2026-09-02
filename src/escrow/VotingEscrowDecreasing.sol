@@ -550,19 +550,26 @@ contract VotingEscrowDecreasing is
         return start + _maxTime;
     }
 
-    function isLockExpired(uint256 _tokenId) public view returns (bool) {
+    // When withdrawing, we want to check current timestamp, not next checkpoint
+    function isLockCurrentlyExpired(uint256 _tokenId) public view returns (bool) {
+        uint256 start = _locked[_tokenId].lockedBalance.start;
+        uint256 maxTime = IEscrowCurve(curve).maxTime();
+        return _isLockExpired(start, block.timestamp, maxTime);
+    }
+
+    function isLockExpiredAtNextCheckpoint(uint256 _tokenId) external view returns (bool) {
         uint256 start = _locked[_tokenId].lockedBalance.start;
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
         uint256 maxTime = IEscrowCurve(curve).maxTime();
         return _isLockExpired(start, nextEffectiveStart, maxTime);
     }
 
-    function _isLockExpired(uint256 _start, uint256 _nextEffectiveStart, uint256 _maxTime) internal pure returns (bool) {
+    function _isLockExpired(uint256 _start, uint256 _when, uint256 _maxTime) internal pure returns (bool) {
         // Permanent locks
         if (_start == 0) return false;
 
         uint256 endTime = _start + _maxTime;
-        return endTime <= _nextEffectiveStart;
+        return endTime <= _when;
     }
 
     function _requireLockPermanent(LockedBalanceDecreasing memory _lock) internal pure {
@@ -749,7 +756,7 @@ contract VotingEscrowDecreasing is
         (address sender, address owner) = _checkOwner(_tokenId);
 
         // Cannot withdraw until lock expires
-        if (!isLockExpired(_tokenId)) revert CannotWithdrawUntilExpiry();
+        if (!isLockCurrentlyExpired(_tokenId)) revert CannotWithdrawUntilExpiry();
 
         LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
         uint256 value = oldLocked.lockedBalance.amount;

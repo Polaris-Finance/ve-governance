@@ -222,7 +222,7 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase, Rewar
                 assertGt(amount, 0, "Permanent locks should have non zero amount");
             } else {
                 // Only in case of not expired locks
-                if (!escrow.isLockExpired(tokenId)) {
+                if (!escrow.isLockExpiredAtNextCheckpoint(tokenId)) {
                     assertLt(slope, 0, "Non permanent locks should have negative slope");
                 }
                 assertGt(start, 0, "Non permanent locks should have non zero start");

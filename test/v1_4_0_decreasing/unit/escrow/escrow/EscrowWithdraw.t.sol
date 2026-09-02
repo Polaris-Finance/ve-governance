@@ -146,7 +146,7 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         {
             nftLock.approve(address(escrow), tokenId);
 
-            vm.warp(MAX_TIME + 1 days);
+            vm.warp(weekStartTs(block.timestamp) + MAX_TIME + 1);
 
             escrow.withdraw(tokenId);
 

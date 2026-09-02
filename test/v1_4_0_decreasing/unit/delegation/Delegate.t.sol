@@ -152,7 +152,7 @@ contract TestDelegate is Base {
         _mockLocked(multiIds[0], 10, weekStartTs(block.timestamp));
         // This lock is expired
         _mockLocked(multiIds[1], 10, weekStartTs(block.timestamp) - maxTime);
-        _mockIsLockExpired(multiIds[1], true);
+        _mockIsLockExpiredAtNextCheckpoint(multiIds[1], true);
 
         vm.expectRevert(abi.encodeWithSelector(LockExpired.selector, multiIds[1]));
         dg.delegate(multiIds);

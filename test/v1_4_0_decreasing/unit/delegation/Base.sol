@@ -29,7 +29,7 @@ import {FixedPointBase} from "../../base/FixedPointBase.sol";
 
 contract EscrowVotingPowerMock is IDelegateUpdateVotingPower {
     function updateVotingPower(address a, address b) external {}
-    function isLockExpired(uint256 _tokenId) external view returns (bool) {}
+    function isLockExpiredAtNextCheckpoint(uint256 _tokenId) external view returns (bool) {}
 }
 
 contract MockLockNFT {
@@ -262,10 +262,10 @@ contract Base is
         );
     }
 
-    function _mockIsLockExpired(uint256 _tokenId, bool _value) internal {
+    function _mockIsLockExpiredAtNextCheckpoint(uint256 _tokenId, bool _value) internal {
         vm.mockCall(
             address(escrow),
-            abi.encodeWithSelector(VotingEscrow.isLockExpired.selector, (_tokenId)),
+            abi.encodeWithSelector(VotingEscrow.isLockExpiredAtNextCheckpoint.selector, (_tokenId)),
             abi.encode(_value)
         );
     }
