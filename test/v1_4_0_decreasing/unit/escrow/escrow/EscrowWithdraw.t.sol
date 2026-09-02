@@ -164,7 +164,7 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
     /// `numberOfDelegatedTokens` counter stays stuck above zero forever, which
     /// permanently blocks `setDelegateAddress()` for that account (it requires
     /// the counter to be 0).
-    function test_withdraw_clearsDelegationCounter() public {
+    function test_withdraw_clearsDelegationCounterByOwner() public {
         address who = address(0xBEEF);
         uint256 dep = getFlooredAmount(100e18);
 
@@ -189,6 +189,45 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         // Withdraw (burns the NFT and returns the tokens).
         vm.startPrank(who);
         nftLock.approve(address(escrow), tokenId);
+        escrow.withdraw(tokenId);
+        vm.stopPrank();
+
+        // The lock no longer exists, so the delegation counter must be 0.
+        // Fails on unfixed code (stays at 1): the burn skips delegation cleanup.
+        assertEq(
+            ivotesAdapter.numberOfDelegatedTokens(who),
+            0,
+            "withdraw must clear the delegation counter"
+        );
+    }
+
+    function test_withdraw_clearsDelegationCounterByApprovedAccount() public {
+        address who = address(0xBEEF);
+        address app = address(0xC0FFEE);
+        uint256 dep = getFlooredAmount(100e18);
+
+        token.mint(who, dep);
+
+        vm.startPrank(who);
+        token.approve(address(escrow), dep);
+        uint256 tokenId = escrow.createLock(dep, MAX_TIME);
+        // Approve to a 3rd party
+        nftLock.approve(app, tokenId);
+
+        // Activate at the next checkpoint, then self-delegate.
+        vm.warp(block.timestamp + 2 weeks + 1 hours);
+        ivotesAdapter.delegate(who);
+        vm.stopPrank();
+
+        // Precondition: the lock is now delegated.
+        assertEq(ivotesAdapter.numberOfDelegatedTokens(who), 1, "precondition: token delegated");
+
+        // Let the lock fully expire so voting power is 0 and withdrawal is allowed.
+        vm.warp(block.timestamp + MAX_TIME + 2 weeks);
+        assertEq(escrow.votingPower(tokenId), 0, "voting power must be 0 at expiry");
+
+        // Withdraw by 3rd party (burns the NFT and returns the tokens).
+        vm.startPrank(app);
         escrow.withdraw(tokenId);
         vm.stopPrank();
 
