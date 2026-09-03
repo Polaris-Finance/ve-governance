@@ -186,6 +186,14 @@ abstract contract DelegationHelper is IEscrowIVotesAdapter, Pausable, UUPSUpgrad
             (int256 newBias, int256 newSlope) = _getBiasAndSlope(delegatee, _newLocked, _positive);
             _checkpoint(oldBias + newBias, oldSlope + newSlope, delegatee);
         }
+
+        // This call only comes from locking/unlockig permanent and increasing amount or duration,
+        // so it won't decrease the voting power.
+        // This means that calling updateVotingPower would do nothing in the Gauge Voter,
+        // because of the check of usedVotingPower.
+        // That's why we leave it commented out, but if that condition changes,
+        // this should be reconsidered.
+        // IVotingEscrow(escrow).updateVotingPower(_owner, _owner);
     }
 
     /// @dev Whether token is currently delegated or not.
