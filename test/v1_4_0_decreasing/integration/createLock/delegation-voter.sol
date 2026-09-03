@@ -83,7 +83,7 @@ contract TestCreateLock_DelegationAndVoter is
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 2);
     }
 
-    function test_CreateLock_AndDelegatesImmediately() public {
+    function test_CreateLock_AndDelegatesImmediatelyWithIds() public {
         vm.warp(1);
 
         vm.prank(bob);
@@ -112,6 +112,53 @@ contract TestCreateLock_DelegationAndVoter is
         uint256[] memory delegatedIds = new uint256[](1);
         delegatedIds[0] = tokenId;
         ivotesAdapter.delegate(delegatedIds);
+
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 2 weeks);
+
+        // Bob now votes with power delegated from alice token
+        vm.startPrank(bob);
+        IAddressGaugeVote.GaugeVote[] memory votes = new IAddressGaugeVote.GaugeVote[](1);
+        votes[0] = IAddressGaugeVote.GaugeVote(100, gauge);
+        voter.vote(votes);
+        vm.stopPrank();
+
+        uint256 bias = bias(lock1Amount, block.timestamp - checkpointTs);
+        assertEq(ivotesAdapter.getVotes(alice), 0);
+        assertEq(voter.votes(alice, gauge), 0);
+        assertEq(ivotesAdapter.getVotes(bob), bias);
+        assertEq(voter.votes(bob, gauge), bias);
+        assertTrue(ivotesAdapter.tokenIsDelegated(tokenId));
+        assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
+    }
+
+    function test_CreateLock_AndDelegatesImmediatelyToAddress() public {
+        vm.warp(1);
+
+        vm.prank(bob);
+        ivotesAdapter.delegate(bob);
+
+        uint256 lock1Amount = getFlooredAmount(15e18);
+
+        token.transfer(alice, lock1Amount);
+
+        address gauge = address(0x777);
+
+        // activate cp & warp to an active window
+        vm.warp(2 weeks + 1 hours + 1);
+        voter.createGauge(gauge, "metadata");
+
+        uint256 checkpointTs = weekStartTs(block.timestamp);
+
+        // alice creates lock and delegates
+        vm.startPrank(alice);
+
+        token.approve(address(escrow), lock1Amount);
+        uint256 tokenId = escrow.createLock(lock1Amount, MAX_TIME);
+        nftLock.approve(bob, tokenId);
+
+        ivotesAdapter.delegate(bob);
 
         vm.stopPrank();
 
