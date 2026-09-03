@@ -15,7 +15,7 @@ import {ProxyLib} from "@libs/ProxyLib.sol";
 import {PermissionLib} from "@aragon/osx-commons-contracts/src/permission/PermissionLib.sol";
 import {PluginSetup} from "@aragon/osx-commons-contracts/src/plugin/setup/PluginSetup.sol";
 
-import {AddressGaugeVoter as GaugeVoter} from "@voting/AddressGaugeVoter.sol";
+import {AddressGaugeVoterDecreasing as GaugeVoter} from "@voting/AddressGaugeVoterDecreasing.sol";
 import {VotingEscrowDecreasing as VotingEscrow} from "@escrow/VotingEscrowDecreasing.sol";
 import {LinearDecreasingCurve as Curve} from "@curve/LinearDecreasingCurve.sol";
 import {ClockV1_2_0 as Clock} from "@clock/Clock_v1_2_0.sol";

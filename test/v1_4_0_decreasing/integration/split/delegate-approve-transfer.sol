@@ -85,10 +85,14 @@ contract TestSplit_ApproveDelegateAndTransfer is TestSplit_ApproveDelegateBase {
         vm.prank(alice);
         nftLock.transferFrom(alice, dave, 2);
 
+        uint256 splitBiasAfterTransfer = bias(
+            aliceAmount - splitAmount,
+            weekStartTs(block.timestamp) - checkpointTs
+        );
+        assertEq(voter.votes(bob, gauge), splitBiasAfterTransfer);
         // Until start of next checkpoint interval, it's not effective
         elapsed = block.timestamp - checkpointTs;
         uint256 biasBeforeCheckpoint = bias(aliceAmount, elapsed);
-        assertEq(voter.votes(bob, gauge), biasBeforeCheckpoint);
         assertEq(ivotesAdapter.getVotes(bob), biasBeforeCheckpoint);
         assertEq(ivotesAdapter.getVotes(eve), 0);
 
@@ -97,7 +101,7 @@ contract TestSplit_ApproveDelegateAndTransfer is TestSplit_ApproveDelegateBase {
         elapsed = block.timestamp - checkpointTs;
         // Bob's gauge vote auto-decreases without revoting
         // enableUpdateVotingPowerHook is set to true, so epoch is always zero in AddressGagueVoter
-        assertEq(voter.votes(bob, gauge), biasBeforeCheckpoint);
+        assertEq(voter.votes(bob, gauge), splitBiasAfterTransfer);
         assertEq(ivotesAdapter.getVotes(bob), bias(aliceAmount - splitAmount, elapsed));
         assertEq(ivotesAdapter.getVotes(eve), bias(splitAmount, elapsed));
     }
