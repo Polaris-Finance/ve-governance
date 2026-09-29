@@ -36,7 +36,10 @@
     }
   },
   "lib/protocol-factory": {
-    "rev": "c5d3b20b51251d2a391238048de7b814cd8d13ca"
+    "branch": {
+      "name": "develop-polaris",
+      "rev": "a7a531cc4df2bb56026085731b79e3c628323536"
+    }
   },
   "lib/solmate": {
     "rev": "97bdb2003b70382996a79a406813f76417b1cf90"

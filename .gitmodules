@@ -32,4 +32,5 @@ branch = v4.9.2
 	branch = main
 [submodule "lib/protocol-factory"]
 	path = lib/protocol-factory
-	url = https://github.com/aragon/protocol-factory
+	url = https://github.com/Polaris-Finance/protocol-factory
+	branch = develop-polaris
