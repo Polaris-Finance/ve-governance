@@ -31,7 +31,6 @@ import {VotingEscrowDecreasing as VotingEscrow} from "@escrow/VotingEscrowDecrea
 import {IClockV1_2_0 as IClock} from "@clock/IClock_v1_2_0.sol";
 
 import {IEscrowIVotesAdapter, IDelegateMoveVoteRecipient} from "./IEscrowIVotesAdapter.sol";
-import {CurveConstantLib} from "@libs/CurveConstantLib.sol";
 import {SignedFixedPointMath} from "@libs/SignedFixedPointMathLib.sol";
 import {DelegationHelper} from "./DelegationHelper.sol";
 
