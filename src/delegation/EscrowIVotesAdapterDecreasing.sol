@@ -5,7 +5,7 @@ import {
     IVotesUpgradeable
 } from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 import {
-    SafeCastUpgradeable
+    SafeCastUpgradeable as SafeCast
 } from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import {
     ReentrancyGuardUpgradeable as ReentrancyGuard
@@ -42,7 +42,8 @@ contract EscrowIVotesAdapterDecreasing is
     UUPSUpgradeable,
     DelegationHelper
 {
-    using SafeCastUpgradeable for uint256;
+    using SafeCast for int256;
+    using SafeCast for uint256;
 
     /// @notice The Gauge admin can can create and manage voting gauges for token holders
     bytes32 public constant DELEGATION_ADMIN_ROLE = keccak256("DELEGATION_ADMIN");
@@ -601,7 +602,7 @@ contract EscrowIVotesAdapterDecreasing is
         uint256 elapsed = nextCheckpointStart - _locked.start;
         elapsed = elapsed > maxTime ? maxTime : elapsed;
 
-        int256 amount = uint256(_locked.amount).toInt256();
+        int256 amount = _getFlooredAmount(_locked.amount).toInt256();
 
         int256 slope;
         if (_locked.start == 0) { // permanent lock
@@ -621,6 +622,13 @@ contract EscrowIVotesAdapterDecreasing is
         }
 
         return (op(bias), slope);
+    }
+
+    // Copy of LinearDecreasingCurve:getFlooredAmount()
+    // To make sure that locks reach zero exactly at the end of the epoch
+    function _getFlooredAmount(uint256 _amount) internal view returns (uint256) {
+        uint256 denominator = (-SHARED_LINEAR_DENOMINATOR).toUint256();
+        return _amount / denominator * denominator;
     }
 
     /// @notice Returns the address of the implementation contract in the [proxy storage slot](https://eips.ethereum.org/EIPS/eip-1967) slot the [UUPS proxy](https://eips.ethereum.org/EIPS/eip-1822) is pointing to.
