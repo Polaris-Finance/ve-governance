@@ -158,27 +158,6 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase, Rewar
         }
     }
 
-    function invariant_UserCannotHaveMoreVotesOnGaugeVoterThanIVotesAdapter() public view {
-        address[] memory actors = h.getActors();
-
-        uint256 totalPastVotes = 0;
-        uint256 delta = 0;
-        for (uint256 i = 0; i < actors.length; i++) {
-            address actor = actors[i];
-
-            uint256 pastVotes = ivotesAdapter.getVotes(actor);
-            totalPastVotes += pastVotes;
-
-            delta += h.getIncomingTokens(actor).length;
-        }
-
-        uint256 totalOnGaugeVoter = voter.totalVotingPowerCast();
-        if (totalOnGaugeVoter > totalPastVotes) {
-            // TODO
-            //assertApproxEqAbs(totalOnGaugeVoter, totalPastVotes, delta);
-        }
-    }
-
     function invariant_TotalVotingPowerDoesNotExceedTotalLocked() public view {
         assertLe(escrow.totalVotingPower(), bias(h.totalLocked(), 0));
     }
