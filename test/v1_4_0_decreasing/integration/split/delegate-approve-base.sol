@@ -53,11 +53,14 @@ abstract contract TestSplit_ApproveDelegateBase is
     }
 
     function _approveCharlieAndSplit(uint256 _tokenId, uint256 _splitAmount) internal {
+        // splitting off a raw amount would make the floored parts sum to less than the
+        // original amount and the delegatee would lose voting power
+        uint256 flooredAmount = getFlooredAmount(_splitAmount);
         vm.prank(alice);
         nftLock.approve(charlie, _tokenId);
 
         vm.prank(charlie);
-        escrow.split(_tokenId, _splitAmount);
+        escrow.split(_tokenId, flooredAmount);
     }
 
     function _assertDelegatedToBob(uint256[] memory _tokenIds) internal view {
