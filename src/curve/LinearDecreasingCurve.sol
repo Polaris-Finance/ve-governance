@@ -350,6 +350,26 @@ contract LinearDecreasingCurve is
                     _globalPointHistory[_globalPointLatestIndex] = lastPoint;
                 }
             }
+            // If the loop above exited because of its 255-iteration cap instead of
+            // reaching `_newLocked.recordedStart`, `lastPoint` still sits at
+            // `lastPointCheckpoint + 255 * checkpointInterval`, behind the new
+            // recorded start. All slope changes written so far lie within `maxTime`
+            // (208 intervals) of the stale point, so the loop has already consumed
+            // them all and no slope change can fall inside the remaining gap. The
+            // bias can therefore be decayed linearly up to `_newLocked.recordedStart`
+            // (this also keeps the bias of permanent locks, whose slope is zero).
+            //
+            // Without this correction, the new global point would be stored at the
+            // stale timestamp with the new lock's bias/slope applied too early, and
+            // `supplyAt` would under-report the total voting power from then on.
+            if (lastPoint.writtenTs < _newLocked.recordedStart) {
+                lastPoint.bias = _getBias(
+                    _newLocked.recordedStart - lastPoint.writtenTs,
+                    lastPoint.bias.toInt256(),
+                    lastPoint.slope
+                );
+                lastPoint.writtenTs = uint48(_newLocked.recordedStart);
+            }
         }
 
         uint256 oldLockedBias;
