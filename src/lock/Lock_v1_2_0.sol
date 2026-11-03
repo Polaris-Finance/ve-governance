@@ -33,6 +33,8 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
 
     /// @notice role to upgrade this contract
     bytes32 public constant LOCK_ADMIN_ROLE = keccak256("LOCK_ADMIN");
+    /// @notice role to update lock NFT art
+    bytes32 public constant LOCK_NFT_ART_UPDATE_ROLE = keccak256("LOCK_NFT_ART_UPDATE_ROLE");
 
     /// @notice Address of the escrow contract that holds underyling assets
     address public escrow;
@@ -89,8 +91,8 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
         emit WhitelistSet(address(escrow), true);
     }
 
-    /// @notice Point the veNFT at a new on-chain metadata renderer. Governance only.
-    function setDescriptor(address _descriptor) external auth(LOCK_ADMIN_ROLE) {
+    /// @notice Point the veNFT at a new on-chain metadata renderer.
+    function setDescriptor(address _descriptor) external auth(LOCK_NFT_ART_UPDATE_ROLE) {
         descriptor = _descriptor;
         emit DescriptorSet(_descriptor);
     }
