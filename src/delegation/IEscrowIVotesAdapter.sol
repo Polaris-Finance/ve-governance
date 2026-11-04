@@ -24,6 +24,7 @@ interface IEscrowIVotesAdapterErrorsAndEvents {
     error TokenAlreadyDelegated(uint256 tokenId);
     error TokenNotDelegated(uint256 tokenId);
     error VotingPowerZero(uint256 tokenId);
+    error LockExpired(uint256 tokenId);
     error TokenListEmpty();
 
     error ZeroTransition();
@@ -53,6 +54,13 @@ interface IDelegateMoveVoteRecipient {
         address _to,
         uint256 _tokenId,
         ILockedBalanceIncreasing.LockedBalance memory _locked
+    ) external;
+
+    function updateDelegateVotes(
+        address _owner,
+        uint256 _tokenId,
+        ILockedBalanceIncreasing.LockedBalance memory _oldLocked,
+        ILockedBalanceIncreasing.LockedBalance memory _newLocked
     ) external;
 }
 

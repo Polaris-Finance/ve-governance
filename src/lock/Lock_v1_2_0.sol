@@ -17,6 +17,14 @@ import {
     IVotingEscrowIncreasingV1_2_0 as IVotingEscrow
 } from "@escrow/IVotingEscrowIncreasing_v1_2_0.sol";
 
+/// @dev Minimal, swappable on-chain metadata renderer (implemented by Polaris' PolarisNFTDescriptor).
+interface ILockNFTDescriptor {
+    function renderLock(uint256 tokenId, uint256 amount, uint256 votingPower)
+        external
+        view
+        returns (string memory);
+}
+
 /// @title NFT representation of an escrow locking mechanism
 contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable, ReentrancyGuard {
     /// @dev enables transfers without whitelisting
@@ -25,12 +33,19 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
 
     /// @notice role to upgrade this contract
     bytes32 public constant LOCK_ADMIN_ROLE = keccak256("LOCK_ADMIN");
+    /// @notice role to update lock NFT art
+    bytes32 public constant LOCK_NFT_ART_UPDATE_ROLE = keccak256("LOCK_NFT_ART_UPDATE_ROLE");
 
     /// @notice Address of the escrow contract that holds underyling assets
     address public escrow;
 
     /// @notice Whitelisted contracts that are allowed to transfer
     mapping(address => bool) public whitelisted;
+
+    /// @notice Governance-swappable on-chain metadata renderer. While unset, `tokenURI` returns "".
+    address public descriptor;
+
+    event DescriptorSet(address indexed descriptor);
 
     /*//////////////////////////////////////////////////////////////
                               Modifiers
@@ -74,6 +89,22 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
         // allow sending nfts to the escrow
         whitelisted[escrow] = true;
         emit WhitelistSet(address(escrow), true);
+    }
+
+    /// @notice Point the veNFT at a new on-chain metadata renderer.
+    function setDescriptor(address _descriptor) external auth(LOCK_NFT_ART_UPDATE_ROLE) {
+        descriptor = _descriptor;
+        emit DescriptorSet(_descriptor);
+    }
+
+    /// @notice Fully on-chain, dynamically-rendered token URI. Reads live lock state from the escrow
+    ///         and delegates to the swappable descriptor.
+    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
+        _requireMinted(_tokenId);
+        if (descriptor == address(0)) return "";
+        IVotingEscrow e = IVotingEscrow(escrow);
+        return
+            ILockNFTDescriptor(descriptor).renderLock(_tokenId, e.locked(_tokenId).amount, e.votingPower(_tokenId));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -140,5 +171,6 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
     function _authorizeUpgrade(address) internal virtual override auth(LOCK_ADMIN_ROLE) {}
 
     /// @dev Reserved storage space to allow for layout changes in the future.
-    uint256[48] private __gap;
+    /// @dev Reduced from 48 -> 47 when `descriptor` was added (upgrade-safe: new var takes a gap slot).
+    uint256[47] private __gap;
 }

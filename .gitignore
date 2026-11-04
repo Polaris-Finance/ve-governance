@@ -27,6 +27,7 @@ deployments/
 artifacts/
 
 # Coverage
+coverage
 lcov.info
 
 # WIP
