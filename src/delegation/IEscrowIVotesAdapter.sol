@@ -28,6 +28,7 @@ interface IEscrowIVotesAdapterErrorsAndEvents {
     error TokenListEmpty();
 
     error ZeroTransition();
+    error IncompleteCheckpoint();
 }
 
 interface IDelegateMoveVoteRecipient {

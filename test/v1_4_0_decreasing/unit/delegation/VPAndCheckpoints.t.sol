@@ -249,6 +249,72 @@ contract TestVPAndCheckpoints is Base {
         assertGlobalPoint(alice, 2, 0, 0, expectedTs);
     }
 
+    /// @notice A voting power change must not be written at a stale timestamp when
+    ///         the delegate's last checkpoint is older than the 255-interval catch-up cap.
+    function test_shouldRevertIfAutomaticCheckpointCannotReachCurrentCheckpoint() public {
+        dg.setDelegateAddress(alice);
+
+        // Create a zero-voting-power checkpoint, then leave it untouched.
+        uint256 staleTs = weekStartTs(block.timestamp);
+        dg.checkpointTransition(alice, 1);
+        assertEq(dg.pointHistory_(alice, 1).writtenTs, staleTs);
+
+        vm.warp(block.timestamp + 260 weeks);
+
+        uint256 amount = getFlooredAmount(600e18);
+        uint256 start = weekStartTs(block.timestamp);
+        _mockLocked(singleId[0], amount, start);
+
+        // The new voting power would have been dated staleTs + 255 weeks by the
+        // bounded loop, before the current checkpoint. Reject it instead.
+        vm.expectRevert(IncompleteCheckpoint.selector);
+        dg.delegate(singleId);
+    }
+
+    /// @notice Catching a stale delegate up first makes the subsequent voting power
+    ///         change land at the current checkpoint, so it cannot affect past proposals.
+    function test_manualCatchUpPreventsBackdatedVotingPower() public {
+        dg.setDelegateAddress(alice);
+
+        uint256 staleTs = weekStartTs(block.timestamp);
+        dg.checkpointTransition(alice, 1);
+
+        vm.warp(block.timestamp + 260 weeks);
+        uint256 currentCheckpoint = weekStartTs(block.timestamp);
+
+        // Permissionlessly advance the stale delegate to the current checkpoint.
+        dg.checkpointTransition(alice, (currentCheckpoint - staleTs) / checkpointInterval);
+
+        uint256 amount = getFlooredAmount(600e18);
+        uint256 start = currentCheckpoint;
+        _mockLocked(singleId[0], amount, start);
+        dg.delegate(singleId);
+
+        GlobalPoint memory p = dg.pointHistory_(alice, dg.latestPointIndex(alice));
+        assertEq(p.writtenTs, currentCheckpoint);
+
+        // The fresh lock's power must not be visible before the current checkpoint.
+        assertEq(dg.getPastVotes(alice, currentCheckpoint - 1), 0);
+    }
+
+    /// @notice A checkpoint exactly at the 255-interval catch-up limit can still be
+    ///         advanced automatically without requiring a manual transition.
+    function test_automaticCheckpointAtTransitionLimit() public {
+        dg.setDelegateAddress(alice);
+
+        dg.checkpointTransition(alice, 1);
+
+        vm.warp(block.timestamp + 255 weeks);
+        uint256 currentCheckpoint = weekStartTs(block.timestamp);
+
+        uint256 amount = getFlooredAmount(600e18);
+        _mockLocked(singleId[0], amount, currentCheckpoint);
+        dg.delegate(singleId);
+
+        GlobalPoint memory p = dg.pointHistory_(alice, dg.latestPointIndex(alice));
+        assertEq(p.writtenTs, currentCheckpoint);
+    }
+
     /*//////////////////////////////////////////////////////////////
                   Same Timestamp Checkpoint Overwrite
     //////////////////////////////////////////////////////////////*/

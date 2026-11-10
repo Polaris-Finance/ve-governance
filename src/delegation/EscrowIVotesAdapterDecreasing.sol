@@ -367,9 +367,11 @@ contract EscrowIVotesAdapterDecreasing is
         int256 _totalSlope,
         address _delegatee
     ) internal override {
-        // If the system hasn't been touched for > 255 intervals (~5 years), this will end prematurely
-        // We assume the system gets checkpointed more frequently than that.
-        _checkpoint(_totalBias, _totalSlope, _delegatee, 255);
+        // A voting power change must be written at the latest checkpoint. If the
+        // delegate is more than 255 intervals (~5 years) stale, the bounded catch-up
+        // below cannot reach it. Revert instead of writing the change in the past;
+        // callers can first advance the delegate with `checkpointTransition`.
+        _checkpoint(_totalBias, _totalSlope, _delegatee, 255, true);
     }
 
     function _checkpoint(
@@ -378,6 +380,16 @@ contract EscrowIVotesAdapterDecreasing is
         address _delegatee,
         uint256 _transitionCount
     ) internal override {
+        _checkpoint(_totalBias, _totalSlope, _delegatee, _transitionCount, false);
+    }
+
+    function _checkpoint(
+        int256 _totalBias,
+        int256 _totalSlope,
+        address _delegatee,
+        uint256 _transitionCount,
+        bool _requireComplete
+    ) internal {
         if(_transitionCount == 0) revert ZeroTransition();
 
         GlobalPoint memory lastPoint = GlobalPoint({
@@ -407,6 +419,10 @@ contract EscrowIVotesAdapterDecreasing is
             expectedWrittenTs = t_i + _transitionCount * checkpointInterval;
             if (expectedWrittenTs > nextCheckpointStart) {
                 expectedWrittenTs = nextCheckpointStart;
+            }
+
+            if (_requireComplete && expectedWrittenTs != nextCheckpointStart) {
+                revert IncompleteCheckpoint();
             }
 
             for (uint256 i = 0; i < _transitionCount; ++i) {
