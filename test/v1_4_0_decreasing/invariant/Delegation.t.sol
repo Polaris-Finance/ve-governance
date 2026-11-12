@@ -67,7 +67,7 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase, Rewar
         targetContract(address(h));
 
         {
-            bytes4[] memory selectors = new bytes4[](21);
+            bytes4[] memory selectors = new bytes4[](23);
             selectors[0] = DelegationHandler.createLock.selector;
             selectors[1] = DelegationHandler.merge.selector;
             selectors[2] = DelegationHandler.split.selector;
@@ -89,6 +89,8 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase, Rewar
             selectors[18] = DelegationHandler.claimManyDirectly.selector;
             selectors[19] = DelegationHandler.claimThroughAggregator.selector;
             selectors[20] = DelegationHandler.claimManyThroughAggregator.selector;
+            selectors[21] = DelegationHandler.createLockFor.selector;
+            selectors[22] = DelegationHandler.setAutoDelegationDisabled.selector;
             FuzzSelector memory a = FuzzSelector(address(h), selectors);
 
             targetSelector(a);
@@ -97,6 +99,75 @@ contract TestDelegationInvariant is IEscrowCurveTokenStorage, FactoryBase, Rewar
 
     function invariant_TotalLockedCorrect() public view {
         assertEq(h.totalLocked(), escrow.totalLocked());
+    }
+
+    /// @dev The global version of `invariant_UserHasCorrectPastVotes`: no delegatee may
+    ///      hold more voting power than the whole system has. Phantom votes left on old
+    ///      delegatees by the merge/split delegation bugs would show up here.
+    function invariant_DelegatedVotesDoNotExceedTotalVotingPower() public {
+        vm.warp(block.timestamp + checkpointInterval);
+
+        address[] memory actors = h.getActors();
+        uint256 delegatedVotes = 0;
+        for (uint256 i = 0; i < actors.length; i++) {
+            delegatedVotes += ivotesAdapter.getVotes(actors[i]);
+        }
+
+        // The adapter floors every lock amount, so delegated VP is conservative.
+        // Keep a tiny per-delegatee slack for checkpoint rounding.
+        assertLe(delegatedVotes, escrow.totalVotingPower() + actors.length, "Delegated votes exceed total voting power");
+    }
+
+    /// @dev `tokenIsDelegated(tokenId)` and the ghost `outgoingTokens[owner]` must agree.
+    ///      Disagreement means the bitmap and the per-owner counter drifted apart, which
+    ///      is the precondition for every `numberOfDelegatedTokens` exploit found so far.
+    function invariant_TokenDelegationMatchesOutgoingTokens() public view {
+        address[] memory actors = h.getActors();
+
+        for (uint256 i = 0; i < actors.length; i++) {
+            address actor = actors[i];
+            uint256[] memory owned = escrow.ownedTokens(actor);
+            uint256[] memory outgoing = h.getOutgoingTokens(actor);
+
+            for (uint256 j = 0; j < owned.length; j++) {
+                assertEq(
+                    ivotesAdapter.tokenIsDelegated(owned[j]),
+                    _contains(outgoing, owned[j]),
+                    "tokenIsDelegated disagrees with outgoing tokens"
+                );
+            }
+        }
+    }
+
+    /// @dev Every delegated token must be delegated to exactly one delegatee. Comparing
+    ///      the total number of incoming and outgoing edges catches both a token credited
+    ///      to two delegatees (phantom votes) and a delegation that was silently lost.
+    ///      The per-token check then pins each incoming edge to the right delegatee.
+    function invariant_DelegatedTokensHaveSingleDelegatee() public view {
+        address[] memory actors = h.getActors();
+
+        uint256 incomingTotal = 0;
+        uint256 outgoingTotal = 0;
+        for (uint256 i = 0; i < actors.length; i++) {
+            address delegatee = actors[i];
+            uint256[] memory incoming = h.getIncomingTokens(delegatee);
+            incomingTotal += incoming.length;
+            outgoingTotal += h.getOutgoingTokens(delegatee).length;
+
+            for (uint256 j = 0; j < incoming.length; j++) {
+                address owner = nftLock.ownerOf(incoming[j]);
+                assertEq(ivotesAdapter.delegates(owner), delegatee, "incoming token points elsewhere");
+            }
+        }
+
+        assertEq(incomingTotal, outgoingTotal, "Incoming and outgoing delegation edges differ");
+    }
+
+    function _contains(uint256[] memory _haystack, uint256 _needle) private pure returns (bool) {
+        for (uint256 i = 0; i < _haystack.length; i++) {
+            if (_haystack[i] == _needle) return true;
+        }
+        return false;
     }
 
     function invariant_TokenBalanceEqualsTotalLocked() public view {
