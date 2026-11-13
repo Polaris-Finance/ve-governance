@@ -13,58 +13,69 @@ contract TestMerge_Additivity is EscrowBase {
     /// @dev The curve's flooring step.
     uint256 step;
 
-    uint256 from;
-    uint256 to;
-
     function setUp() public override {
         super.setUp();
-
         step = uint256(-linearDenominator);
+    }
 
+    function _setupTwoFlooredLocksAndDelegateThem(address delegator, address delegatee)
+        internal
+        returns (uint256 lock1, uint256 lock2)
+    {
         // Two deposits that are deliberately *not* multiples of the flooring step.
         // With unfloored amounts the curve would not be additive here:
         // floor(1.5d + 1.5d) == 3d > floor(1.5d) + floor(1.5d) == 2d.
         uint256 requested = step + step / 2;
 
-        token.mint(alice, 2 * requested);
+        token.mint(delegator, 2 * requested);
 
-        vm.startPrank(alice);
+        vm.startPrank(delegator);
         {
             token.approve(address(escrow), 2 * requested);
-            from = escrow.createLock(requested, MAX_TIME);
-            to = escrow.createLock(requested, MAX_TIME);
+            lock1 = escrow.createLock(requested, MAX_TIME);
+            lock2 = escrow.createLock(requested, MAX_TIME);
         }
         vm.stopPrank();
-
-        // Only the aligned part gets locked, the remainder stays in the wallet.
-        assertEq(uint256(escrow.locked(from).amount), step, "from lock is floored");
-        assertEq(uint256(escrow.locked(to).amount), step, "to lock is floored");
-        assertEq(token.balanceOf(alice), step, "remainders stay in the wallet");
 
         // Move past the token checkpoint so the locks are active.
         vm.warp(block.timestamp + 2 weeks);
 
-        // Both of alice's tokens get delegated.
-        vm.prank(alice);
-        ivotesAdapter.delegate(bob);
+        vm.prank(delegator);
+        ivotesAdapter.delegate(delegatee);
 
         // Move past the delegation checkpoint.
         vm.warp(block.timestamp + 2 weeks);
+    }
 
-        assertEq(ivotesAdapter.tokenIsDelegated(from), true);
-        assertEq(ivotesAdapter.tokenIsDelegated(to), true);
-        assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 2);
+    // Verify the assumptions that the other tests rely on
+    function test_SetUp() public {
+        (uint256 lock1, uint256 lock2) = _setupTwoFlooredLocksAndDelegateThem({delegator: alice, delegatee: bob});
+
+        // Only the aligned part gets locked, the remainder stays in the wallet.
+        assertEq(uint256(escrow.locked(lock1).amount), step, "lock1 should be floored");
+        assertEq(uint256(escrow.locked(lock2).amount), step, "lock2 should be floored");
+
+        // Each of the 2 locks should have left a remainder of step / 2
+        assertEq(token.balanceOf(alice), step, "remainders should have stayed in the wallet");
+
+        assertTrue(ivotesAdapter.tokenIsDelegated(lock1), "lock1 should be delegated");
+        assertTrue(ivotesAdapter.tokenIsDelegated(lock2), "lock2 should be delegated");
+        assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 2, "alice should have 2 delegated locks");
     }
 
     function test_DecreasingCurveIsAdditiveAcrossLocks() public {
+        (uint256 lock1, uint256 lock2) = _setupTwoFlooredLocksAndDelegateThem({delegator: alice, delegatee: bob});
+
         assertEq(
             ivotesAdapter.getVotes(bob),
-            escrow.votingPower(from) + escrow.votingPower(to),
+            escrow.votingPower(lock1) + escrow.votingPower(lock2),
             "delegatee votes are the sum of the tokens' voting power"
         );
     }
 
     function test_Merge_OfBothDelegatedTokens_KeepsVotesInSync() public {
+        (uint256 from, uint256 to) = _setupTwoFlooredLocksAndDelegateThem({delegator: alice, delegatee: bob});
+
         vm.prank(alice);
         escrow.merge(from, to);
 
