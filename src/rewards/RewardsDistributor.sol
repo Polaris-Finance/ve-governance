@@ -16,7 +16,6 @@ import {IRewardsDistributor} from "./IRewardsDistributor.sol";
  * @author polaris
  */
 // @dev Warning: Rewards are lost for epochs where total supply is zero
-// @dev Warning: Rewards are lost for the from token after merge
 contract RewardsDistributor is IRewardsDistributor {
     using SafeERC20 for IERC20;
     /// @inheritdoc IRewardsDistributor
@@ -112,9 +111,11 @@ contract RewardsDistributor is IRewardsDistributor {
         intervalCursor = timeCursorOf[_tokenId];
         intervalCursorStart = intervalCursor;
 
-        // case where token does not exist
-        uint256 locked = ve.locked(_tokenId).amount;
-        if (locked == 0) return (0, intervalCursorStart, intervalCursor);
+        // case where token does not exist. Burned locks (after a merge or a withdrawal)
+        // keep their token point history, so their accrued rewards remain claimable.
+        if (curve.tokenPointLatestIndex(_tokenId) == 0) {
+            return (0, intervalCursorStart, intervalCursor);
+        }
 
         // case where token exists but has never been claimed
         if (intervalCursor == 0) {

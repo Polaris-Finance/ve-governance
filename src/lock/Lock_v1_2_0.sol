@@ -45,6 +45,10 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
     /// @notice Governance-swappable on-chain metadata renderer. While unset, `tokenURI` returns "".
     address public descriptor;
 
+    /// @dev Owner of a token at the time it was burned. Keeps rewards accrued before
+    ///      a merge or withdrawal claimable by that owner.
+    mapping(uint256 => address) private _lastOwner;
+
     event DescriptorSet(address indexed descriptor);
 
     /*//////////////////////////////////////////////////////////////
@@ -143,13 +147,26 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
     //////////////////////////////////////////////////////////////*/
 
     function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool) {
-        return _isApprovedOrOwner(_spender, _tokenId);
+        if (_exists(_tokenId)) return _isApprovedOrOwner(_spender, _tokenId);
+
+        // Burned tokens keep their last owner so accrued rewards can still be claimed.
+        return _lastOwner[_tokenId] != address(0) && _lastOwner[_tokenId] == _spender;
+    }
+
+    /// @notice Owner of a token at the time it was burned, or zero if it is still live.
+    function lastOwnerOf(uint256 _tokenId) external view returns (address) {
+        return _lastOwner[_tokenId];
     }
 
     /// @notice Minting and burning functions that can only be called by the escrow contract
     /// @dev Safe mint ensures contract addresses are ERC721 Receiver contracts
     function mint(address _to, uint256 _tokenId) external onlyEscrow nonReentrant {
         _safeMint(_to, _tokenId);
+    }
+
+    function _burn(uint256 _tokenId) internal override {
+        _lastOwner[_tokenId] = ownerOf(_tokenId);
+        super._burn(_tokenId);
     }
 
     /// @notice Minting and burning functions that can only be called by the escrow contract
@@ -172,5 +189,5 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
 
     /// @dev Reserved storage space to allow for layout changes in the future.
     /// @dev Reduced from 48 -> 47 when `descriptor` was added (upgrade-safe: new var takes a gap slot).
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 }

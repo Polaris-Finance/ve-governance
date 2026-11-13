@@ -11,4 +11,6 @@ interface IERC721EnumerableMintableBurnable is IERC721Enumerable {
     function burn(uint256 tokenId) external;
 
     function isApprovedOrOwner(address spender, uint256 tokenId) external view returns (bool);
+
+    function lastOwnerOf(uint256 tokenId) external view returns (address);
 }
