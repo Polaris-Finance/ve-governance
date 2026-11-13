@@ -624,6 +624,41 @@ contract EscrowIVotesAdapterDecreasing is
         return (op(bias), slope);
     }
 
+    /// @dev The decreasing curve floors each lock's amount so that locks reach zero exactly
+    ///      at expiry, which makes it non-additive: `vp(a) + vp(b) != vp(a + b)`. We therefore
+    ///      cannot checkpoint amount deltas as the default implementation does. Instead, we
+    ///      checkpoint the difference between the voting power of the merged lock and the
+    ///      voting power that is already accounted for.
+    ///      For an additive curve this difference would be zero, preserving the old behavior.
+    function _mergeDelegateVotesCheckpoint(
+        address _delegatee,
+        TokenLock calldata _from,
+        TokenLock calldata _to,
+        bool _isFromTokenDelegated,
+        bool _isToTokenDelegated
+    ) internal virtual override {
+        IVotingEscrow.LockedBalance memory mergedLocked = _to.locked;
+        mergedLocked.amount += _from.locked.amount;
+
+        (int256 bias, int256 slope) = _getBiasAndSlope(_delegatee, mergedLocked, _positive);
+
+        if (_isFromTokenDelegated) {
+            (int256 fromBias, int256 fromSlope) = _getBiasAndSlope(_delegatee, _from.locked, _negative);
+            bias += fromBias;
+            slope += fromSlope;
+        }
+
+        if (_isToTokenDelegated) {
+            (int256 toBias, int256 toSlope) = _getBiasAndSlope(_delegatee, _to.locked, _negative);
+            bias += toBias;
+            slope += toSlope;
+        }
+
+        if (bias != 0 || slope != 0) {
+            _checkpoint(bias, slope, _delegatee);
+        }
+    }
+
     // Copy of LinearDecreasingCurve:getFlooredAmount()
     // To make sure that locks reach zero exactly at the end of the epoch
     function _getFlooredAmount(uint256 _amount) internal view returns (uint256) {

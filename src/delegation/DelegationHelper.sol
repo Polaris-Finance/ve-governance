@@ -76,48 +76,65 @@ abstract contract DelegationHelper is IEscrowIVotesAdapter, Pausable, UUPSUpgrad
 
         address fromDelegatee = delegates(_from.account);
 
-        if (!isFromTokenDelegated) {
-            // from is not delegated and to is delegated.
-            if (isToTokenDelegated) {
-                (int256 bias, int256 slope) = _getBiasAndSlope(
-                    fromDelegatee,
-                    _from.locked,
-                    _positive
-                );
-                _checkpoint(bias, slope, fromDelegatee);
-            }
+        if (isFromTokenDelegated || isToTokenDelegated) {
+            _mergeDelegateVotesCheckpoint(
+                fromDelegatee,
+                _from,
+                _to,
+                isFromTokenDelegated,
+                isToTokenDelegated
+            );
+        }
 
-            // If none of them are delegated, do nothing.
-        } else {
-            // from is delegated and to is delegated.
-            // since both are already delegated, their amounts are already included in checkpoints.
-            // We only need to mark `from` as false and decrease count since `from` actually
-            // gets burnt(note that its amount moves in `to`)
-            if (isToTokenDelegated) {
-                numberOfDelegatedTokens[_from.account]--;
-            } else {
-                // from is delegated, but `to` is not delegated.
-                // We must add `to`'s amount in the checkpoints. Otherwise, after the merge,
-                // user can manually delegate `to` which's vp at the time will include
-                // the total amount after the merge. This will cause double spend.
-                // lock needs to be `to`'s amount.
-                (int256 bias, int256 slope) = _getBiasAndSlope(
-                    fromDelegatee,
-                    _to.locked,
-                    _positive
-                );
-                _checkpoint(bias, slope, fromDelegatee);
+        // If none of them are delegated, do nothing.
 
+        if (isFromTokenDelegated) {
+            // If `to` is not delegated, we must mark it as delegated. Otherwise, after the
+            // merge, user can manually delegate `to` which's vp at the time will include
+            // the total amount after the merge. This will cause double spend.
+            // Note that `to` takes over `from`'s delegated slot, so the count stays the same.
+            if (!isToTokenDelegated) {
                 _setDelegated(_to.tokenId, true);
-                emit TokensDelegated(
-                    _to.account,
-                    delegates(_to.account),
-                    _getTokenIdList(_to.tokenId)
-                );
+                emit TokensDelegated(_to.account, fromDelegatee, _getTokenIdList(_to.tokenId));
+            } else {
+                // Both are delegated, so `from` getting burnt means one delegated token less.
+                numberOfDelegatedTokens[_from.account]--;
             }
 
+            // `from` actually gets burnt (note that its amount moves in `to`), so it must
+            // no longer be counted as delegated.
             _setDelegated(_from.tokenId, false);
             emit TokensUndelegated(_from.account, fromDelegatee, _getTokenIdList(_from.tokenId));
+        }
+    }
+
+    /// @dev Checkpoints the delegatee's voting power for a merge.
+    /// @notice The default implementation assumes an additive curve, i.e. that
+    ///         `vp(a) + vp(b) == vp(a + b)` holds for the two merged locks. Only the
+    ///         amount that isn't accounted for yet then needs to be checkpointed.
+    ///         Curves that round per lock (e.g. `LinearDecreasingCurve`, which floors
+    ///         each lock's amount so locks reach zero exactly at expiry) are not
+    ///         additive and must override this function.
+    function _mergeDelegateVotesCheckpoint(
+        address _delegatee,
+        TokenLock calldata _from,
+        TokenLock calldata _to,
+        bool _isFromTokenDelegated,
+        bool _isToTokenDelegated
+    ) internal virtual {
+        if (_isFromTokenDelegated) {
+            // `to` inherits the voting power already accounted for by `from`, so only
+            // `to`'s own amount is missing. If both are delegated, the amounts are
+            // already included in the checkpoints and nothing has to be done.
+            if (!_isToTokenDelegated) {
+                (int256 bias, int256 slope) = _getBiasAndSlope(_delegatee, _to.locked, _positive);
+                _checkpoint(bias, slope, _delegatee);
+            }
+        } else if (_isToTokenDelegated) {
+            // `from` is not delegated, but `to` is, so we must add `from`'s amount
+            // in the checkpoints as `to` now carries it as well.
+            (int256 bias, int256 slope) = _getBiasAndSlope(_delegatee, _from.locked, _positive);
+            _checkpoint(bias, slope, _delegatee);
         }
     }
 
