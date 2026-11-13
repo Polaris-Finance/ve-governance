@@ -28,10 +28,15 @@ import {
 } from "../../../versions.sol";
 
 contract TestEscrowSplit is EscrowBase {
+    /// @dev Locked and split amounts are floored to a multiple of this step.
+    uint256 internal step;
+
     function setUp() public override {
         super.setUp();
 
         super.mintAndApproveEscrow();
+
+        step = uint256(-linearDenominator);
 
         escrow.setEnableSplit(address(this), true);
     }
@@ -57,7 +62,7 @@ contract TestEscrowSplit is EscrowBase {
 
         vm.expectRevert(SplitNotWhitelisted.selector);
         vm.prank(address(123));
-        escrow.split(from, 10);
+        escrow.split(from, step);
     }
 
     function test_shouldRevert_IfSenderIsNotApprovedOrOwner() public {
@@ -68,20 +73,28 @@ contract TestEscrowSplit is EscrowBase {
 
         vm.startPrank(sender);
         vm.expectRevert(IVotingEscrowCoreErrors.NotApprovedOrOwner.selector);
-        escrow.split(from, 10);
+        escrow.split(from, step);
     }
 
     function test_shouldRevert_IfTokenHasNoOwner() public {
         vm.expectRevert("ERC721: invalid token ID");
-        escrow.split(15, 10);
+        escrow.split(15, step);
     }
 
     function test_shouldRevert_IfNewAmountsLessThanMinDeposit() public {
-        escrow.setMinDeposit(50);
-        uint256 from = escrow.createLock(70, MAX_TIME);
+        escrow.setMinDeposit(2 * step);
+        uint256 from = escrow.createLock(3 * step, MAX_TIME);
 
         vm.expectRevert(IVotingEscrowCoreErrors.AmountTooSmall.selector);
-        escrow.split(from, 40);
+        escrow.split(from, step);
+    }
+
+    function test_shouldRevert_IfSplitAmountIsBelowOneStep() public {
+        uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
+
+        // Flooring would leave nothing to split.
+        vm.expectRevert(IVotingEscrowCoreErrors.ZeroAmount.selector);
+        escrow.split(from, step - 1);
     }
 
     function test_shouldRevert_ifAmountZero() public {
@@ -112,12 +125,13 @@ contract TestEscrowSplit is EscrowBase {
 
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
 
-        escrow.split(from, 10e18);
+        uint256 splitVal = getFlooredAmount(10e18);
+        escrow.split(from, splitVal);
 
         LockedBalance memory lockedFrom = escrow.locked(from);
 
         assertEq(lockedFrom.start, weekStartTs(block.timestamp));
-        assertEq(lockedFrom.amount, Lock_1_Amount - 10e18);
+        assertEq(lockedFrom.amount, Lock_1_Amount - splitVal);
 
         assertEq(nftLock.ownerOf(from), address(this));
     }
@@ -127,7 +141,8 @@ contract TestEscrowSplit is EscrowBase {
 
         uint256 originalTokenStartTs = weekStartTs(block.timestamp);
 
-        uint256 splitVal = 1200;
+        // Aligned with the curve's flooring step, so the split is exact.
+        uint256 splitVal = step;
 
         uint256 token1Value = Lock_1_Amount - splitVal;
         uint256 token2Value = splitVal;
@@ -150,7 +165,7 @@ contract TestEscrowSplit is EscrowBase {
     }
 
     function test_SplitEventIsEmitted() public {
-        uint256 splitVal = 20;
+        uint256 splitVal = step;
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
         vm.expectEmit();
         emit Split(

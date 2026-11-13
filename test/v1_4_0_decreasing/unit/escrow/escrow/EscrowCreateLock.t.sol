@@ -48,7 +48,10 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
     }
 
     function testCantMintBelowMinDeposit(uint256 _minDeposit) public {
-        vm.assume(_minDeposit > 1);
+        // Deposits are floored to a multiple of the curve's linear denominator,
+        // so the smallest meaningful deposit is one denominator step.
+        uint256 step = uint256(-linearDenominator);
+        _minDeposit = bound(_minDeposit, 2 * step, 1_000_000e18);
         escrow.setMinDeposit(_minDeposit);
 
         token.mint(address(123), _minDeposit);
@@ -64,7 +67,30 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
         escrow.setMinDeposit(1);
 
         vm.prank(address(123));
-        escrow.createLock(1, MAX_TIME);
+        escrow.createLock(step, MAX_TIME);
+    }
+
+    function test_DepositIsFlooredAndRemainderStaysInWallet() public {
+        uint256 step = uint256(-linearDenominator);
+        uint256 requested = 10 * step + step / 3;
+        uint256 expected = 10 * step;
+
+        token.mint(address(this), requested);
+        token.approve(address(escrow), requested);
+
+        uint256 tokenId = escrow.createLock(requested, MAX_TIME);
+
+        // Only the amount that contributes to voting power is locked.
+        assertEq(uint256(escrow.locked(tokenId).amount), expected, "locked amount is floored");
+        assertEq(escrow.totalLocked(), expected, "totalLocked is floored");
+        assertEq(token.balanceOf(address(escrow)), expected, "escrow holds the floored amount");
+
+        // The remainder never leaves the wallet.
+        assertEq(token.balanceOf(address(this)), requested - expected, "remainder stays in wallet");
+
+        // Deposits below one step would contribute no voting power at all.
+        vm.expectRevert(ZeroAmount.selector);
+        escrow.createLock(step - 1, MAX_TIME);
     }
 
     /// @param _value is positive, we check this in a previous test. It needs to fit inside an int256
@@ -160,8 +186,9 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
 
     function testCreateMultipleLocks() public {
         User[] memory users = new User[](2);
-        User memory matt = User(1_000_500 ether, address(0x1));
-        User memory shane = User(2_500_900 ether, address(0x2));
+        // Deposits are floored to a multiple of the curve's linear denominator.
+        User memory matt = User(getFlooredAmount(1_000_500 ether), address(0x1));
+        User memory shane = User(getFlooredAmount(2_500_900 ether), address(0x2));
         users[0] = matt;
         users[1] = shane;
 
@@ -300,6 +327,8 @@ contract TestCreateLock is IEscrowCurveTokenStorage, EscrowBase {
     }
 
     function testFuzz_createLockFor(uint128 _value) public {
+        // Deposits are floored to a multiple of the curve's linear denominator.
+        _value = uint128(getFlooredAmount(_value));
         vm.assume(_value > 0);
         escrow.setMinDeposit(_value);
 
