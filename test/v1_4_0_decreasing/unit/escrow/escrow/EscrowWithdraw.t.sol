@@ -124,21 +124,24 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
         address USER1 = address(1);
         address USER2 = address(2);
 
+        // Deposits are floored to a multiple of the curve's linear denominator.
+        uint256 deposit = getFlooredAmount(100 ether);
+
         // mint
-        token.mint(USER1, 100);
-        token.mint(USER2, 100);
+        token.mint(USER1, deposit);
+        token.mint(USER2, deposit);
 
         vm.prank(USER1);
-        token.approve(address(escrow), 100);
+        token.approve(address(escrow), deposit);
 
         vm.prank(USER2);
-        token.approve(address(escrow), 100);
+        token.approve(address(escrow), deposit);
 
         vm.prank(USER1);
-        uint256 tokenId = escrow.createLockFor(100, MAX_TIME, USER1); // Token ID 1
+        uint256 tokenId = escrow.createLockFor(deposit, MAX_TIME, USER1); // Token ID 1
 
         vm.prank(USER2);
-        uint256 tokenId2 = escrow.createLockFor(100, MAX_TIME, USER2); // Token ID 2
+        uint256 tokenId2 = escrow.createLockFor(deposit, MAX_TIME, USER2); // Token ID 2
 
         // approve
         uint256 tokenId3;
@@ -150,8 +153,8 @@ contract TestWithdraw is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
 
             escrow.withdraw(tokenId);
 
-            token.approve(address(escrow), 100);
-            tokenId3 = escrow.createLockFor(100, MAX_TIME, USER1); // Token ID 2 - Duplicated - Reescrowrt
+            token.approve(address(escrow), deposit);
+            tokenId3 = escrow.createLockFor(deposit, MAX_TIME, USER1); // Token ID 2 - Duplicated - Reescrowrt
         }
         vm.stopPrank();
 

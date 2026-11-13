@@ -125,8 +125,9 @@ contract TestLockDescriptor is EscrowBase {
     }
 
     function testFuzz_TokenURIWithDescriptor(uint256 _amount) public {
-        // Bound to a sensible deposit range (min deposit is 1).
-        _amount = bound(_amount, 1, 1_000_000_000e18);
+        // Bound to a sensible deposit range and align it with the curve's
+        // flooring step, which the escrow applies to every deposit.
+        _amount = getFlooredAmount(bound(_amount, uint256(-linearDenominator), 1_000_000_000e18));
 
         nftLock.setDescriptor(address(mockDescriptor));
 
