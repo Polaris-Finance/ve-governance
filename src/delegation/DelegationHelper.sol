@@ -122,7 +122,7 @@ abstract contract DelegationHelper is IEscrowIVotesAdapter, Pausable, UUPSUpgrad
     }
 
     /// @inheritdoc IDelegateMoveVoteRecipient
-    /// @dev This is called on `transfer`, `withdraw` and `createLock`.
+    /// @dev This is called on `transfer` and `createLock`
     /// @notice Assumes that: if this is called on transfer, then it can only be called if _from and _to are different.
     function moveDelegateVotes(
         address _from,
@@ -165,6 +165,35 @@ abstract contract DelegationHelper is IEscrowIVotesAdapter, Pausable, UUPSUpgrad
         if (fromDelegatee != toDelegatee) {
             IVotingEscrow(escrow).updateVotingPower(fromDelegatee, toDelegatee);
         }
+    }
+
+    /// @dev This is called on modifications of locks (duration, amount or permanent state)
+    function updateDelegateVotes(
+        address _owner,
+        uint256 _tokenId,
+        IVotingEscrow.LockedBalance memory _oldLocked,
+        IVotingEscrow.LockedBalance memory _newLocked
+    ) external virtual whenNotPaused onlyEscrow {
+        address delegatee = delegates(_owner);
+
+        // undelegated src and recipient, no balances to update
+        if (delegatee == address(0)) {
+            return;
+        }
+
+        if (tokenIsDelegated(_tokenId)) {
+            (int256 oldBias, int256 oldSlope) = _getBiasAndSlope(delegatee, _oldLocked, _negative);
+            (int256 newBias, int256 newSlope) = _getBiasAndSlope(delegatee, _newLocked, _positive);
+            _checkpoint(oldBias + newBias, oldSlope + newSlope, delegatee);
+        }
+
+        // This call only comes from locking/unlockig permanent and increasing amount or duration,
+        // so it won't decrease the voting power.
+        // This means that calling updateVotingPower would do nothing in the Gauge Voter,
+        // because of the check of usedVotingPower.
+        // That's why we leave it commented out, but if that condition changes,
+        // this should be reconsidered.
+        // IVotingEscrow(escrow).updateVotingPower(_owner, _owner);
     }
 
     /// @dev Whether token is currently delegated or not.
