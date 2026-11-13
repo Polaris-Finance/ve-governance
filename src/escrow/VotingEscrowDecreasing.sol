@@ -363,6 +363,10 @@ contract VotingEscrowDecreasing is
     /// @param _duration For how long the tokens are locked in the NFT
     /// @param _to Address to deposit
     function _createLockFor(uint256 _value, uint256 _duration, address _to) internal returns (uint256) {
+        // Only the amount that actually contributes to voting power gets locked.
+        // The remainder stays in the sender's wallet.
+        _value = _getFlooredAmount(_value);
+
         _requireNonZeroAmount(_value);
         if (_value < minDeposit) revert AmountTooSmall();
 
@@ -463,6 +467,10 @@ contract VotingEscrowDecreasing is
 
     function increaseAmount(uint256 _tokenId, uint256 _value) external whenNotPaused {
         (,address owner) = _checkOwner(_tokenId);
+        // Only the amount that actually contributes to voting power gets locked.
+        // The remainder stays in the sender's wallet.
+        _value = _getFlooredAmount(_value);
+
         _requireNonZeroAmount(_value);
         LockedBalanceDecreasing memory oldLocked = _locked[_tokenId];
         LockedBalanceDecreasing memory newLocked;
@@ -656,6 +664,10 @@ contract VotingEscrowDecreasing is
 
     /// @inheritdoc ISplit
     function split(uint256 _from, uint256 _value) public whenNotPaused returns (uint256) {
+        // Both resulting amounts have to stay aligned with the curve's flooring
+        // step, otherwise the locks would stop being exactly additive.
+        _value = _getFlooredAmount(_value);
+
         _requireNonZeroAmount(_value);
 
         (address sender, address owner) = _checkOwner(_from);
@@ -722,6 +734,16 @@ contract VotingEscrowDecreasing is
 
     function _requireNonZeroAmount(uint256 _amount) internal pure {
         if (_amount == 0) revert ZeroAmount();
+    }
+
+    /// @dev Floors `_amount` to a multiple of the curve's linear denominator, i.e. the
+    ///      same amount the curve floors internally to make locks reach zero exactly at
+    ///      expiry. Because every locked amount is stored aligned, the curve's flooring
+    ///      becomes the identity and voting power is exactly additive:
+    ///      `vp(a) + vp(b) == vp(a + b)`, which the delegation checkpoints rely on.
+    ///      Any remainder is left in the caller's wallet.
+    function _getFlooredAmount(uint256 _amount) internal view returns (uint256) {
+        return IEscrowCurve(curve).getFlooredAmount(_amount);
     }
 
     function _checkDuration(uint256 _duration, uint256 _maxTime) internal view {

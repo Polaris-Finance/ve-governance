@@ -202,7 +202,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
 
     function setDelegateAddress(uint256 _delegatorIdx, uint256 _delegateeIdx) public {
         address delegator = _getAddress(_delegatorIdx);
-        address delegatee = _getAddress(_delegateeIdx);
+        address delegatee = _getDelegatee(_delegateeIdx);
 
         if (ivotesAdapter.numberOfDelegatedTokens(delegator) != 0) {
             return;
@@ -218,7 +218,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         uint256 _delegateeSeed
     ) public adjustTimestamp(_jumpSeed) {
         address msgSender = _getAddress(_senderSeed);
-        address newDelegatee = _getAddress(_delegateeSeed);
+        address newDelegatee = _getDelegatee(_delegateeSeed);
         address currentDelegatee = ivotesAdapter.delegates(msgSender);
 
         _assumeNonExpired(msgSender);
@@ -226,15 +226,28 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         _transitionIfTooOld(newDelegatee);
         _transitionIfTooOld(currentDelegatee);
 
+        uint256[] memory tokens = _fromSetToArray(ownedTokens[msgSender]);
+
+        // `delegate(address)` only re-delegates everything when auto-delegation is
+        // enabled.  With the flag set it undelegates the currently delegated tokens and
+        // stops there, so snapshot the delegated ones before the call.
+        bool autoDelegationOff = ivotesAdapter.autoDelegationDisabled(msgSender);
+        bool[] memory wasDelegated = new bool[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            wasDelegated[i] = ivotesAdapter.tokenIsDelegated(tokens[i]);
+        }
+
         vm.prank(msgSender);
         ivotesAdapter.delegate(newDelegatee);
 
-        uint256[] memory tokens = _fromSetToArray(ownedTokens[msgSender]);
-
         // Ghost state variables
         for (uint256 i = 0; i < tokens.length; i++) {
-            _updateDelegationState(tokens[i], msgSender, Action.REMOVE, currentDelegatee);
-            _updateDelegationState(tokens[i], msgSender, Action.ADD, newDelegatee);
+            if (wasDelegated[i] && currentDelegatee != address(0)) {
+                _updateDelegationState(tokens[i], msgSender, Action.REMOVE, currentDelegatee);
+            }
+            if (!autoDelegationOff && newDelegatee != address(0)) {
+                _updateDelegationState(tokens[i], msgSender, Action.ADD, newDelegatee);
+            }
         }
     }
 
@@ -530,31 +543,82 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     }
 
     function withdraw(uint256 _jumpSeed, uint256 _tokenIdSeed) public adjustTimestamp(_jumpSeed) {
-        /* TODO
-        if (withdrawTokens.length() == 0) return;
+        uint256[] memory ids = getActiveTokenIds();
+        if (ids.length == 0) return;
 
-        _tokenIdSeed = _bound(_tokenIdSeed, 0, withdrawTokens.length() - 1);
-        uint256 tokenId = withdrawTokens.at(_tokenIdSeed);
-
-        // withdraw only works if lock has expired
-        // So warp to that time to avoid many early returns for withdraw.
-        ILockedBalanceIncreasing.LockedBalance memory locked = escrow.locked(tokenId);
-        if (block.timestamp <= locked.start + maxTime) {
-            vm.warp(locked.start + maxTime + 1);
+        // Permanent locks are not withdrawable until they are unlocked, so only
+        // consider the rest.
+        uint256[] memory candidates = new uint256[](ids.length);
+        uint256 count = 0;
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (!isPermanentLock[ids[i]]) candidates[count++] = ids[i];
         }
+        if (count == 0) return;
 
-        address delegatee = ivotesAdapter.delegates(ticket.holder);
+        uint256 tokenId = candidates[_bound(_tokenIdSeed, 0, count - 1)];
+        ILockedBalanceIncreasing.LockedBalance memory locked = escrow.locked(tokenId);
+        address owner = lockNft.ownerOf(tokenId);
 
+        // Withdrawals are only allowed once the lock has expired.
+        uint256 end = locked.start + maxTime;
+        if (block.timestamp < end) vm.warp(end + 1);
+
+        address delegatee = ivotesAdapter.delegates(owner);
         _transitionIfTooOld(delegatee);
 
-        vm.prank(lockNft.ownerOf(tokenId));
+        vm.prank(owner);
         escrow.withdraw(tokenId);
 
         // Ghost state variables
         totalLocked -= locked.amount;
         activeTokenIds.remove(tokenId);
-        withdrawTokens.remove(tokenId);
-        */
+        ownedTokens[owner].remove(tokenId);
+        isPermanentLock[tokenId] = false;
+
+        if (delegatee != address(0)) {
+            _updateDelegationState(tokenId, owner, Action.REMOVE, delegatee);
+        }
+    }
+
+    function createLockFor(
+        uint256 _jumpSeed,
+        uint256 _value,
+        uint256 _duration,
+        uint256 _senderSeed,
+        uint256 _toSeed
+    ) external adjustTimestamp(_jumpSeed) returns (uint256 tokenId) {
+        _value = _bound(_value, escrow.minDeposit(), type(uint96).max);
+        _value = getFlooredAmount(_value);
+        vm.assume(_value > 0);
+        _duration = _bound(_duration, 1 weeks, maxTime);
+        _duration = getFlooredDuration(_duration);
+
+        address funder = _getAddress(_senderSeed);
+        address to = _getAddress(_toSeed);
+        address delegatee = ivotesAdapter.delegates(to);
+
+        _transitionIfTooOld(delegatee);
+
+        token.mint(funder, _value);
+        vm.startPrank(funder);
+        token.approve(address(escrow), _value);
+        tokenId = escrow.createLockFor(_value, _duration, to);
+        vm.stopPrank();
+
+        // Ghost state variables
+        totalLocked += _value;
+        activeTokenIds.add(tokenId);
+        ownedTokens[to].add(tokenId);
+
+        _updateDelegationState(tokenId, to, Action.ADD, address(0));
+
+        return tokenId;
+    }
+
+    function setAutoDelegationDisabled(uint256 _senderSeed, bool _disabled) public {
+        address msgSender = _getAddress(_senderSeed);
+        vm.prank(msgSender);
+        ivotesAdapter.setAutoDelegationDisabled(_disabled);
     }
 
     function transfer(
@@ -905,6 +969,13 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         return actors[_bound(_seedAddr, 0, actors.length - 1)];
     }
 
+    /// @dev Like `_getAddress`, but sometimes returns `address(0)` so that
+    ///      `delegate(address(0))` and `setDelegateAddress(address(0))` gets coverage.
+    function _getDelegatee(uint256 _seedAddr) private view returns (address) {
+        _seedAddr = _bound(_seedAddr, 0, actors.length);
+        return _seedAddr == actors.length ? address(0) : actors[_seedAddr];
+    }
+
     function _assumeNonExpired(address _sender) internal view {
         uint256[] memory tokenIds = VotingEscrow(escrow).ownedTokens(_sender);
         _assumeNonExpired(tokenIds);
@@ -936,6 +1007,8 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
     // manual transition only fills in weeks between last and current time and doesn't add
     // non-zero bias/slope (which is the case when checkpoint is called with creat lock/merge/split/...).
     function _transitionIfTooOld(address _delegatee) private {
+        if (_delegatee == address(0)) return;
+
         uint256 latestPointIndex = ivotesAdapter.latestPointIndex(_delegatee);
 
         (, , uint256 writtenTs) = ivotesAdapter.pointHistory(_delegatee, latestPointIndex);

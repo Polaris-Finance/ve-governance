@@ -91,12 +91,18 @@ interface IVotingEscrowCore is
     function ownerOf(uint256 _tokenId) external view returns (address);
 
     /// @notice Deposit `_value` tokens for `msg.sender`
+    /// @dev `_value` is floored to a multiple of the curve's linear denominator, so
+    ///      that the lock contributes exactly the voting power the curve computes.
+    ///      Only the floored amount is transferred from the caller, the remainder
+    ///      stays in their wallet. Values below one denominator step revert with
+    ///      `ZeroAmount`.
     /// @param _value Amount to deposit
     /// @param _duration For how long the tokens are locked in the NFT
     /// @return TokenId of created veNFT
     function createLock(uint256 _value, uint256 _duration) external returns (uint256);
 
     /// @notice Deposit `_value` tokens for `_to`
+    /// @dev Same flooring rules as `createLock`.
     /// @param _value Amount to deposit
     /// @param _duration For how long the tokens are locked in the NFT
     /// @param _to Address to deposit
@@ -113,6 +119,9 @@ interface IVotingEscrowCore is
 
     function lockPermanent(uint256 _tokenId) external;
     function unlockPermanent(uint256 _tokenId) external;
+    /// @notice Increases the locked amount of `_tokenId` by `_value`
+    /// @dev `_value` is floored to a multiple of the curve's linear denominator, the
+    ///      remainder stays in the caller's wallet.
     function increaseAmount(uint256 _tokenId, uint256 _value) external;
     function increaseUnlockTime(uint256 _tokenId, uint256 _duration) external;
     function isPermanent(uint256 _tokenId) external view returns (bool);
@@ -257,6 +266,8 @@ interface ISplitEventsAndErrors {
 
 interface ISplit is ISplitEventsAndErrors {
     /// @notice Split token into two new, separate tokens.
+    /// @dev `_value` is floored to a multiple of the curve's linear denominator so
+    ///      both resulting locks stay aligned with the curve.
     /// @param _from The token id that should be split
     /// @param _value The amount that determines how token is split
     /// @return _newTokenId The new token id after split.

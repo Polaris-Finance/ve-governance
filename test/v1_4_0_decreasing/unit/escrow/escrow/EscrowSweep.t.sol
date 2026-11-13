@@ -20,8 +20,13 @@ import {
 } from "../../../versions.sol";
 
 contract TestSweep is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
+    /// @dev Deposits are floored to a multiple of the curve's linear denominator.
+    uint256 internal depositAmount;
+
     function setUp() public override {
         super.setUp();
+
+        depositAmount = getFlooredAmount(1000 ether);
 
         // grant the sweeper role to this contract
         dao.grant({
@@ -48,38 +53,38 @@ contract TestSweep is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
 
     function testCannotSweepFromLocked() public {
         address user = address(1);
-        token.mint(address(user), 1000);
+        token.mint(address(user), depositAmount);
 
         vm.startPrank(user);
         {
-            token.approve(address(escrow), 1000);
-            escrow.createLock(1000, MAX_TIME);
+            token.approve(address(escrow), depositAmount);
+            escrow.createLock(depositAmount, MAX_TIME);
         }
         vm.stopPrank();
 
-        assertEq(token.balanceOf(address(escrow)), 1000);
+        assertEq(token.balanceOf(address(escrow)), depositAmount);
         assertEq(token.balanceOf(address(this)), 0);
-        assertEq(escrow.totalLocked(), 1000);
+        assertEq(escrow.totalLocked(), depositAmount);
 
         // first try with no excess tokens
         vm.expectRevert(NothingToSweep.selector);
         escrow.sweep();
 
         // check that nothing changed
-        assertEq(token.balanceOf(address(escrow)), 1000);
+        assertEq(token.balanceOf(address(escrow)), depositAmount);
         assertEq(token.balanceOf(address(this)), 0);
-        assertEq(escrow.totalLocked(), 1000);
+        assertEq(escrow.totalLocked(), depositAmount);
 
         // now try with excess tokens
-        token.mint(address(escrow), 1000);
+        token.mint(address(escrow), depositAmount);
 
-        assertEq(token.balanceOf(address(escrow)), 2000);
+        assertEq(token.balanceOf(address(escrow)), 2 * depositAmount);
 
         escrow.sweep();
 
-        assertEq(token.balanceOf(address(escrow)), 1000);
-        assertEq(token.balanceOf(address(this)), 1000);
-        assertEq(escrow.totalLocked(), 1000);
+        assertEq(token.balanceOf(address(escrow)), depositAmount);
+        assertEq(token.balanceOf(address(this)), depositAmount);
+        assertEq(escrow.totalLocked(), depositAmount);
     }
 
     function testOnlySweeperRole() public {
@@ -98,9 +103,9 @@ contract TestSweep is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
 
     function testCannotSweepNFTIfNotInContract() public {
         // create a lock
-        token.mint(address(this), 1000);
-        token.approve(address(escrow), 1000);
-        uint tokenId = escrow.createLock(1000, MAX_TIME);
+        token.mint(address(this), depositAmount);
+        token.approve(address(escrow), depositAmount);
+        uint tokenId = escrow.createLock(depositAmount, MAX_TIME);
 
         // try to sweep the NFT -- should fail as it's not in the contract
         vm.expectRevert(NothingToSweep.selector);
@@ -109,9 +114,9 @@ contract TestSweep is IEscrowCurveTokenStorage, IGaugeVote, EscrowBase {
 
     function testCanSweepNFT() public {
         // create, transfer, whitelis, sweep
-        token.mint(address(this), 1000);
-        token.approve(address(escrow), 1000);
-        uint tokenId = escrow.createLock(1000, MAX_TIME);
+        token.mint(address(this), depositAmount);
+        token.approve(address(escrow), depositAmount);
+        uint tokenId = escrow.createLock(depositAmount, MAX_TIME);
         nftLock.transferFrom(address(this), address(escrow), tokenId);
         nftLock.setWhitelisted(address(this), true);
 

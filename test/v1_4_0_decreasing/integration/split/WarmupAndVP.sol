@@ -41,7 +41,8 @@ contract TestSplit_WarmUpAndVotingPower is
     }
     
     function test_Split() public {
-        uint256 value = 10e18;
+        // Split amounts are floored to a multiple of the curve's linear denominator.
+        uint256 value = getFlooredAmount(10e18);
 
         uint256 tokenId1 = escrow.split(from, value);
         vm.warp(block.timestamp + 1 weeks);

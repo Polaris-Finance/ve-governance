@@ -80,7 +80,7 @@ contract RewardsDistributorTest is EscrowBase {
         vm.stopPrank();
 
         IVotingEscrow.LockedBalance memory locked = escrow.locked(tokenId);
-        assertEq(_convert(locked.amount), TOKEN_1M);
+        assertEq(_convert(locked.amount), getFlooredAmount(TOKEN_1M));
         assertEq(uint256(locked.start), startTime);
         assertEq(escrow.isPermanent(tokenId), false);
 
@@ -95,7 +95,7 @@ contract RewardsDistributorTest is EscrowBase {
         vm.stopPrank();
 
         locked = escrow.locked(tokenId2);
-        assertEq(_convert(locked.amount), TOKEN_1M);
+        assertEq(_convert(locked.amount), getFlooredAmount(TOKEN_1M));
         assertEq(uint256(locked.start), startTime);
         assertEq(escrow.isPermanent(tokenId2), false);
 
@@ -154,7 +154,7 @@ contract RewardsDistributorTest is EscrowBase {
         escrow.lockPermanent(tokenId);
 
         IVotingEscrow.LockedBalance memory locked = escrow.locked(tokenId);
-        assertEq(_convert(locked.amount), TOKEN_1M);
+        assertEq(_convert(locked.amount), getFlooredAmount(TOKEN_1M));
         assertEq(uint256(locked.start), 0);
         assertEq(escrow.isPermanent(tokenId), true);
 
@@ -170,7 +170,7 @@ contract RewardsDistributorTest is EscrowBase {
         vm.stopPrank();
 
         locked = escrow.locked(tokenId2);
-        assertEq(_convert(locked.amount), TOKEN_1M);
+        assertEq(_convert(locked.amount), getFlooredAmount(TOKEN_1M));
         assertEq(uint256(locked.start), 0);
         assertEq(escrow.isPermanent(tokenId2), true);
 
@@ -331,7 +331,7 @@ contract RewardsDistributorTest is EscrowBase {
 
         locked = escrow.locked(tokenId); // update locked value post claim
         assertEq(post - pre, reward); // expired reward distributed as unlocked rewardsToken
-        assertEq(uint256(uint128(locked.amount)), TOKEN_1M); // expired nft locked balance unchanged
+        assertEq(uint256(uint128(locked.amount)), getFlooredAmount(TOKEN_1M)); // expired nft locked balance unchanged
     }
 
     function testClaimManyWithExpiredNFT() public {
@@ -369,7 +369,7 @@ contract RewardsDistributorTest is EscrowBase {
 
         locked = escrow.locked(tokenId); // update locked value post claim
         assertEq(post - pre, reward + reward2);
-        assertEq(uint256(uint128(locked.amount)), TOKEN_1M); // expired nft locked balance unchanged
+        assertEq(uint256(uint128(locked.amount)), getFlooredAmount(TOKEN_1M)); // expired nft locked balance unchanged
     }
 
     function testCanClaimDuringFirstHour() public {
