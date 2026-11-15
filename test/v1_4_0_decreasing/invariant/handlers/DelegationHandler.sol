@@ -221,8 +221,6 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
         address newDelegatee = _getDelegatee(_delegateeSeed);
         address currentDelegatee = ivotesAdapter.delegates(msgSender);
 
-        _assumeNonExpired(msgSender);
-
         _transitionIfTooOld(newDelegatee);
         _transitionIfTooOld(currentDelegatee);
 

@@ -27,20 +27,29 @@ contract TestDelegate is Base {
         dg.delegate(address(1));
     }
 
-    function testRevert_IfLockExpiredAtLeastForOneToken_IVotesDelegate() public {
+    function test_DelegatesAllLocksIfOneIsExpired_IVotesDelegate() public {
         vm.warp(block.timestamp + maxTime + 1);
         dg.setDelegateAddress(alice);
         dg.setAutoDelegationDisabled(false);
 
-        _mockLocked(multiIds[0], 10, weekStartTs(block.timestamp));
+        uint256 amount = getFlooredAmount(100e18);
+        uint256 start = weekStartTs(block.timestamp);
+        _mockLocked(multiIds[0], amount, start);
         // This lock is expired
-        _mockLocked(multiIds[1], 10, weekStartTs(block.timestamp) - maxTime);
+        _mockLocked(multiIds[1], amount, start - maxTime);
         _mockIsLockExpiredAtNextCheckpoint(multiIds[1], true);
 
         _mockOwnedTokens(sender, multiIds);
 
-        vm.expectRevert(abi.encodeWithSelector(LockExpired.selector, multiIds[1]));
         dg.delegate(bob);
+
+        assertTrue(dg.tokenIsDelegated(multiIds[0]));
+        assertTrue(dg.tokenIsDelegated(multiIds[1]));
+        assertEq(dg.numberOfDelegatedTokens(sender), multiIds.length);
+
+        // Only the live lock adds voting power
+        vm.warp(start);
+        assertEq(dg.getVotes(bob), amount);
     }
 
     function test_Sets_DelegateeForFirstTime() public {

@@ -217,7 +217,8 @@ contract EscrowIVotesAdapterDecreasing is
     /// @param _delegatee The new delegatee address to which `_tokenIds` will be delegated.
     /// @param _tokenIds The array of token ids. Note that it's caller's responsibility to not
     ///                  call this function for empty list of `_tokenIds`.
-    /// @param _validate The boolean flag of whether to validate that token ids are owned by the `_sender` or not.
+    /// @param _validate The boolean flag of whether to validate that token ids are owned by the `_sender`,
+    ///                  not yet delegated and not expired, or not.
     ///                  In some cases, validation is not needed as caller already knows that there's no need.
     function _delegate(
         address _sender,
@@ -240,11 +241,11 @@ contract EscrowIVotesAdapterDecreasing is
                 if (tokenIsDelegated(tokenId)) {
                     revert TokenAlreadyDelegated(tokenId);
                 }
-            }
 
-            // Ensure that lock is not expired
-            if (IVotingEscrow(escrow).isLockExpiredAtNextCheckpoint(tokenId)) {
-                revert LockExpired(tokenId);
+                // Ensure that lock is not expired
+                if (IVotingEscrow(escrow).isLockExpiredAtNextCheckpoint(tokenId)) {
+                    revert LockExpired(tokenId);
+                }
             }
 
             _setDelegated(tokenId, true);
