@@ -264,4 +264,40 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
         vm.expectRevert();
         escrow.merge(from, to);
     }
+
+    function test_shouldRevert_IfFromLockIsExpiredAndWithdrawn() public {
+        uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
+
+        // Both locks are created in the same week with MAX_TIME, so they share a start.
+        assertEq(escrow.locked(from).start, escrow.locked(to).start);
+
+        // Warp past the locks' end time. The NFTs still exist (not withdrawn), but both are expired.
+        vm.warp(uint256(escrow.locked(from).start) + MAX_TIME + 1 weeks);
+        assertTrue(escrow.isLockCurrentlyExpired(from), "from should be expired");
+        assertTrue(escrow.isLockCurrentlyExpired(to), "to should be expired");
+
+        escrow.withdraw(from);
+
+        vm.expectRevert();
+        escrow.merge(from, to);
+    }
+
+    function test_shouldRevert_IfToLockIsExpiredAndWithdrawn() public {
+        uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
+
+        // Both locks are created in the same week with MAX_TIME, so they share a start.
+        assertEq(escrow.locked(from).start, escrow.locked(to).start);
+
+        // Warp past the locks' end time. The NFTs still exist (not withdrawn), but both are expired.
+        vm.warp(uint256(escrow.locked(from).start) + MAX_TIME + 1 weeks);
+        assertTrue(escrow.isLockCurrentlyExpired(from), "from should be expired");
+        assertTrue(escrow.isLockCurrentlyExpired(to), "to should be expired");
+
+        escrow.withdraw(to);
+
+        vm.expectRevert();
+        escrow.merge(from, to);
+    }
 }
