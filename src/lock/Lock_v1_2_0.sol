@@ -17,14 +17,6 @@ import {
     IVotingEscrowIncreasingV1_2_0 as IVotingEscrow
 } from "@escrow/IVotingEscrowIncreasing_v1_2_0.sol";
 
-/// @dev Minimal, swappable on-chain metadata renderer (implemented by Polaris' PolarisNFTDescriptor).
-interface ILockNFTDescriptor {
-    function renderLock(uint256 tokenId, uint256 amount, uint256 votingPower)
-        external
-        view
-        returns (string memory);
-}
-
 /// @title NFT representation of an escrow locking mechanism
 contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable, ReentrancyGuard {
     /// @dev enables transfers without whitelisting
@@ -33,23 +25,12 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
 
     /// @notice role to upgrade this contract
     bytes32 public constant LOCK_ADMIN_ROLE = keccak256("LOCK_ADMIN");
-    /// @notice role to update lock NFT art
-    bytes32 public constant LOCK_NFT_ART_UPDATE_ROLE = keccak256("LOCK_NFT_ART_UPDATE_ROLE");
 
     /// @notice Address of the escrow contract that holds underyling assets
     address public escrow;
 
     /// @notice Whitelisted contracts that are allowed to transfer
     mapping(address => bool) public whitelisted;
-
-    /// @notice Governance-swappable on-chain metadata renderer. While unset, `tokenURI` returns "".
-    address public descriptor;
-
-    /// @dev Owner of a token at the time it was burned. Keeps rewards accrued before
-    ///      a merge or withdrawal claimable by that owner.
-    mapping(uint256 => address) private _lastOwner;
-
-    event DescriptorSet(address indexed descriptor);
 
     /*//////////////////////////////////////////////////////////////
                               Modifiers
@@ -95,22 +76,6 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
         emit WhitelistSet(address(escrow), true);
     }
 
-    /// @notice Point the veNFT at a new on-chain metadata renderer.
-    function setDescriptor(address _descriptor) external auth(LOCK_NFT_ART_UPDATE_ROLE) {
-        descriptor = _descriptor;
-        emit DescriptorSet(_descriptor);
-    }
-
-    /// @notice Fully on-chain, dynamically-rendered token URI. Reads live lock state from the escrow
-    ///         and delegates to the swappable descriptor.
-    function tokenURI(uint256 _tokenId) public view override returns (string memory) {
-        _requireMinted(_tokenId);
-        if (descriptor == address(0)) return "";
-        IVotingEscrow e = IVotingEscrow(escrow);
-        return
-            ILockNFTDescriptor(descriptor).renderLock(_tokenId, e.locked(_tokenId).amount, e.votingPower(_tokenId));
-    }
-
     /*//////////////////////////////////////////////////////////////
                               Transfers
     //////////////////////////////////////////////////////////////*/
@@ -147,26 +112,13 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
     //////////////////////////////////////////////////////////////*/
 
     function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool) {
-        if (_exists(_tokenId)) return _isApprovedOrOwner(_spender, _tokenId);
-
-        // Burned tokens keep their last owner so accrued rewards can still be claimed.
-        return _lastOwner[_tokenId] != address(0) && _lastOwner[_tokenId] == _spender;
-    }
-
-    /// @notice Owner of a token at the time it was burned, or zero if it is still live.
-    function lastOwnerOf(uint256 _tokenId) external view returns (address) {
-        return _lastOwner[_tokenId];
+        return _isApprovedOrOwner(_spender, _tokenId);
     }
 
     /// @notice Minting and burning functions that can only be called by the escrow contract
     /// @dev Safe mint ensures contract addresses are ERC721 Receiver contracts
     function mint(address _to, uint256 _tokenId) external onlyEscrow nonReentrant {
         _safeMint(_to, _tokenId);
-    }
-
-    function _burn(uint256 _tokenId) internal override {
-        _lastOwner[_tokenId] = ownerOf(_tokenId);
-        super._burn(_tokenId);
     }
 
     /// @notice Minting and burning functions that can only be called by the escrow contract
@@ -188,7 +140,5 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
     function _authorizeUpgrade(address) internal virtual override auth(LOCK_ADMIN_ROLE) {}
 
     /// @dev Reserved storage space to allow for layout changes in the future.
-    /// @dev Reduced from 48 -> 47 when `descriptor` was added (upgrade-safe: new var takes a gap slot).
-    /// @dev Reduced from 47 -> 46 when `_lastOwner` was added (upgrade-safe: new var takes a gap slot).
-    uint256[46] private __gap;
+    uint256[48] private __gap;
 }

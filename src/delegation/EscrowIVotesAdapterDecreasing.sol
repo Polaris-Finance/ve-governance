@@ -13,7 +13,7 @@ import {
 import {
     PausableUpgradeable as Pausable
 } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import {IERC721EnumerableMintableBurnable as IERC721EMB} from "@lock/IERC721EMB.sol";
+import {ILockDecreasing} from "@lock/ILockDecreasing.sol";
 
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IERC6372} from "@openzeppelin/contracts/interfaces/IERC6372.sol";
@@ -234,7 +234,7 @@ contract EscrowIVotesAdapterDecreasing is
             uint256 tokenId = _tokenIds[i];
 
             if (_validate) {
-                if (IERC721EMB(lockNFT).ownerOf(tokenId) != _sender) {
+                if (ILockDecreasing(lockNFT).ownerOf(tokenId) != _sender) {
                     revert NotOwner();
                 }
 
@@ -285,7 +285,7 @@ contract EscrowIVotesAdapterDecreasing is
             uint256 tokenId = _tokenIds[i];
 
             if (_validate) {
-                if (IERC721EMB(lockNFT).ownerOf(tokenId) != _sender) {
+                if (ILockDecreasing(lockNFT).ownerOf(tokenId) != _sender) {
                     revert NotOwner();
                 }
 
@@ -470,7 +470,7 @@ contract EscrowIVotesAdapterDecreasing is
         address lockNFT = IVotingEscrow(escrow).lockNFT();
         if (lockNFT == address(0)) return 0;
 
-        return IERC721EMB(lockNFT).balanceOf(_account);
+        return ILockDecreasing(lockNFT).balanceOf(_account);
     }
 
     /*//////////////////////////////////////////////////////////////
