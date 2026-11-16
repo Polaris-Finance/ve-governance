@@ -45,7 +45,7 @@ Polaris's changes are on the `develop-polaris` branch. This branch was created f
 | `CurveConstantLib` | [src/libs/CurveConstantLibDecreasing.sol](src/libs/CurveConstantLibDecreasing.sol) | New | Library, used at deployment |
 | `RewardsDistributor` | [src/rewards/RewardsDistributor.sol](src/rewards/RewardsDistributor.sol) | New | Regular contract, one per Polaris branch |
 | `RewardsClaimAggregator` | [src/rewards/RewardsClaimAggregator.sol](src/rewards/RewardsClaimAggregator.sol) | New | Regular contract |
-| `TokenVoting` | Polaris's fork of Aragon's token-voting plugin | Modified: adds a maximum proposal duration | Proxy (UUPS) |
+| `TokenVoting` | Polaris's fork of Aragon's token-voting plugin | Modified: adds a maximum proposal duration, and removes the proposal start date | Proxy (UUPS) |
 
 Section 8 explains why none of the proxies can be upgraded after deployment.
 
@@ -219,6 +219,8 @@ Aragon's increasing escrow has none of these four functions.
 
 Aragon also allows two locks to merge once both have reached maturity. Polaris only allows merging when `start` is equal.
 
+`merge` does not check whether the locks have expired. Two expired locks with the same `start` can merge, and the merged lock is still expired.
+
 `split` exists, but only whitelisted accounts can use it. Polaris does not whitelist any account and cannot add one after deployment (section 8). Splitting is therefore disabled.
 
 ### Expiry and withdrawal
@@ -251,7 +253,7 @@ Lock NFTs can be transferred to any address. This is enabled at deployment and c
 
 `EscrowIVotesAdapterDecreasing` keeps the interface and behaviour of Aragon's `EscrowIVotesAdapter`:
 
-- `delegate(address)` delegates all of the caller's locks to one address.
+- `delegate(address)` delegates all of the caller's locks (except expired locks) to one address.
 - `delegate(uint256[])` and `undelegate(uint256[])` add or remove specific locks for the caller's current delegate.
 - `setAutoDelegationDisabled` stops `delegate(address)` from delegating the caller's locks.
 - `getVotes`, `getPastVotes`, `getPastTotalSupply` and `delegates` implement OpenZeppelin's `IVotes`. The adapter also implements ERC-6372. Its `clock()` returns `block.timestamp`, and `CLOCK_MODE()` returns `"mode=timestamp"`.
@@ -276,7 +278,7 @@ Undelegated locks still count in `getPastTotalSupply`, which returns the escrow'
 
 ### TokenVoting settings
 
-Polaris uses its fork of Aragon's token-voting plugin, with the adapter as its voting token. The fork adds a maximum proposal duration. The settings are in `script/launch/*.json` in the Polaris repository, with one file per network. The table shows the values in `mainnet.json`:
+Polaris uses its fork of Aragon's token-voting plugin, with the adapter as its voting token. The fork adds a maximum proposal duration. It also removes the proposal start date: a proposal always starts when it is created, and a non-zero start date reverts. The settings are in `script/launch/*.json` in the Polaris repository, with one file per network. The table shows the values in `mainnet.json`:
 
 | Setting | Value |
 |---|---|
