@@ -78,18 +78,15 @@ contract TestMerge_DelegationAndVoter is
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 2);
 
         // Run merge
-        uint256 lockEnd = getEndTimestamp(checkpointTs, checkpointTs);
-        vm.warp(lockEnd + 1 seconds);
+        vm.warp(block.timestamp + 1 weeks);
         escrow.merge(1, 2);
 
         // Assert state after merge..
 
         // Even though tokenId = 1 is burnt due to merge,
         // Alice still must not lose its power as that
-        // token's amount is merged into another. Note that
-        // bias must be recalculated as merge occured after maxTime,
-        // so duration will be different.
-        assertEq(ivotesAdapter.getVotes(alice), bias(amount1 + amount2, maxTime));
+        // token's amount is merged into another.
+        assertEq(ivotesAdapter.getVotes(alice), bias(amount1 + amount2, block.timestamp - checkpointTs));
 
         // Gauge must still have the same power of Alice's recorded vote.
         // It's still `aliceBias` as we don't update the vote record on voter

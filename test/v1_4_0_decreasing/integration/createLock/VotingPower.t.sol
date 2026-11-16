@@ -85,11 +85,8 @@ contract TestVotingPower is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage,
 
         vm.warp(endTs + 1);
 
+        // Merging expired locks is forbidden
+        vm.expectRevert(LockExpired.selector);
         escrow.merge(tokenId1, tokenId2);
-
-        assertVotingPower(tokenId2, endTs, biasFP(Lock_2_Amount, maxTime), "At end");
-        assertVotingPower(tokenId2, endTs + 1, 0, "At end + 1");
-        assertVotingPower(tokenId2, endTs + 10, 0, "At end + 10");
-        assertVotingPower(tokenId2, endTs + 20, 0, "At end + 20");
     }
 }
