@@ -33,7 +33,8 @@ import {
     IEscrowCurveTokenStorage,
     IDeprecated
 } from "@curve/IEscrowCurveDecreasing.sol";
-import {ILock, IWhitelistErrors, IWhitelistEvents} from "@lock/ILock.sol";
+import {ILockDecreasing as ILock} from "@lock/ILockDecreasing.sol";
+import {IWhitelistErrors, IWhitelistEvents} from "@lock/ILock.sol";
 import {
     IMerge,
     ISplit,
