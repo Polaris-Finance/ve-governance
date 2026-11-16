@@ -469,8 +469,6 @@ contract RewardsDistributorTest is EscrowBase {
         escrow.merge(tokenId, tokenId2);
         vm.warp(block.timestamp + 1 weeks); // Make the merge effective
 
-        // TODO: It fails from here on
-        /*
         claimable1 = distributor.claimable(tokenId);
         claimable2 = distributor.claimable(tokenId2);
         assertGt(claimable1, 0);
@@ -489,14 +487,13 @@ contract RewardsDistributorTest is EscrowBase {
         uint256 balanceBefore = rewardsToken.balanceOf(address(owner));
         vm.prank(address(owner));
         distributor.claim(tokenId);
-        assertGt(rewardsToken.balanceOf(address(owner)), balanceBefore + claimable1);
+        assertEq(rewardsToken.balanceOf(address(owner)), balanceBefore + claimable1);
 
         // Claim "to" token
         balanceBefore = rewardsToken.balanceOf(address(owner));
         vm.prank(address(owner));
         distributor.claim(tokenId2);
-        assertGt(rewardsToken.balanceOf(address(owner)), balanceBefore + claimable2);
-        */
+        assertEq(rewardsToken.balanceOf(address(owner)), balanceBefore + claimable2);
     }
 
     function testCheckpointAfterMoreThanFourYears() public {
