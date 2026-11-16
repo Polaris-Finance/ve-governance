@@ -19,7 +19,7 @@ import {AddressGaugeVoterDecreasing as GaugeVoter} from "@voting/AddressGaugeVot
 import {VotingEscrowDecreasing as VotingEscrow} from "@escrow/VotingEscrowDecreasing.sol";
 import {LinearDecreasingCurve as Curve} from "@curve/LinearDecreasingCurve.sol";
 import {ClockV1_2_0 as Clock} from "@clock/Clock_v1_2_0.sol";
-import {LockV1_2_0 as Lock} from "@lock/Lock_v1_2_0.sol";
+import {LockDecreasing as Lock} from "@lock/LockDecreasing.sol";
 import {EscrowIVotesAdapterDecreasing as EscrowIVotesAdapter} from "@delegation/EscrowIVotesAdapterDecreasing.sol";
 
 /// @param isPaused Whether the voter contract is deployed in a paused state

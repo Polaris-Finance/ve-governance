@@ -3,7 +3,7 @@ pragma solidity ^0.8.17;
 import {EscrowBase} from "../../../base/EscrowBase.sol";
 
 import {DaoUnauthorized} from "@aragon/osx-commons-contracts/src/permission/auth/auth.sol";
-import {ILockNFTDescriptor} from "@lock/Lock_v1_2_0.sol";
+import {ILockNFTDescriptor} from "@lock/LockDecreasing.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 import {
@@ -18,7 +18,7 @@ import {
     IDelegateMoveVoteCaller
 } from "../../../versions.sol";
 
-/// @dev Tests for the `setDescriptor` and `tokenURI` functions added in `Lock_v1_2_0`.
+/// @dev Tests for the `setDescriptor` and `tokenURI` functions added in `LockDecreasing`.
 contract TestLockDescriptor is EscrowBase {
     /// @dev Mirrors the event declared on `LockV1_2_0` so `vm.expectEmit` can match it.
     event DescriptorSet(address indexed descriptor);
