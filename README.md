@@ -186,7 +186,7 @@ Aragon's increasing escrow has a warmup period, an exit queue with a cooldown, a
 `createLock(value, duration)` and `createLockFor(value, duration, to)` have these rules:
 
 - `duration` must be a whole number of weeks, from one week to 208 weeks.
-- The escrow rounds `value` down to a multiple of 125,798,400 wei (section 3), and transfers only the rounded amount. The rounded amount must be non-zero and at least `minDeposit`, which Polaris sets to 1 wei. So the smallest possible lock is 125,798,400 wei.
+- The escrow rounds `value` down to a multiple of 125,798,400 wei (section 3), and transfers only the rounded amount. The rounded amount must be non-zero and at least `minDeposit`, which is set at deployment (section 8).
 - The caller pays the tokens. With `createLockFor`, the NFT goes to `to`. Anyone can create a lock for any address.
 - The lock is recorded at the next checkpoint (section 2).
 - If the new owner has set a delegate, the lock is delegated to that address automatically (section 5).
@@ -365,7 +365,7 @@ The DAO is Polaris's Stewardship. The Polaris core contracts use the DAO's addre
 | Parameter | Value |
 |---|---|
 | Locked token | POLAR |
-| `minDeposit` | 1 wei. Deposits are rounded down first, so the smallest lock is 125,798,400 wei. |
+| `minDeposit` | Set by `script/AragonDeployer.s.sol` in the Polaris repository. |
 | `maxTime` | 208 weeks |
 | Checkpoint interval | 1 week |
 | Epoch | 2 weeks |
@@ -397,7 +397,7 @@ In a standard Aragon setup, the DAO holds `ROOT_PERMISSION` on itself, so govern
 
 - The escrow, curve, adapter, clock and lock NFT are UUPS proxies, but none of them can be upgraded.
 - None of them can be paused.
-- The escrow's settings are fixed. `minDeposit` stays at 1 wei, splitting stays disabled, and no voter can be set.
+- The escrow's settings are fixed. `minDeposit` cannot change, splitting stays disabled, and no voter can be set.
 - Nobody can call `sweep` or `sweepNFT` on the escrow.
 - Lock transfers stay enabled for every address.
 - The TokenVoting settings cannot change.
