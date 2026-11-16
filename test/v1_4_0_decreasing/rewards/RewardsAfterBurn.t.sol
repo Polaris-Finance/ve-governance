@@ -55,6 +55,51 @@ contract RewardsAfterBurnTest is RewardsDistributorTest {
         assertEq(rewardsToken.balanceOf(owner) - before, accrued, "the owner receives it");
     }
 
+    function test_burnedLock_mergeExpiredLockKeepsAccruedRewardsClaimable() public {
+        _skipToNextEpoch(1 days);
+
+        vm.startPrank(owner);
+        uint256 from = escrow.createLock(TOKEN_1M, MAXTIME);
+        uint256 to = escrow.createLock(TOKEN_1M, MAXTIME);
+        vm.stopPrank();
+
+        // Accrue rewards while the locks are still active.
+        _triggerRewardsAndSkipToNextEpoch(0);
+        _triggerRewardsAndSkipToNextEpoch(0);
+
+        uint256 accruedFrom = distributor.claimable(from);
+        uint256 accruedTo = distributor.claimable(to);
+        assertGt(accruedFrom, 0, "the source lock accrued something before expiring");
+
+        // Let both locks fully expire
+        vm.warp(block.timestamp + MAXTIME + 1 weeks);
+        assertTrue(escrow.isLockCurrentlyExpired(from), "from is expired");
+        assertTrue(escrow.isLockCurrentlyExpired(to), "to is expired");
+
+        // Merging an expired lock is allowed because `canMerge` only compares starts.
+        vm.prank(owner);
+        escrow.merge(from, to);
+
+        assertEq(distributor.claimable(from), accruedFrom, "the merge must not erase what accrued before expiry");
+
+        uint256 beforeFrom = rewardsToken.balanceOf(owner);
+        vm.prank(owner);
+        uint256 paidFrom = distributor.claim(from);
+
+        assertEq(paidFrom, accruedFrom, "the claim pays what was accrued (from)");
+        assertEq(rewardsToken.balanceOf(owner) - beforeFrom, accruedFrom, "the owner receives it (from)");
+
+        // The surviving lock's rewards are untouched by the merge.
+        assertEq(distributor.claimable(to), accruedTo, "the surviving lock is unaffected (to)");
+
+        uint256 beforeTo = rewardsToken.balanceOf(owner);
+        vm.prank(owner);
+        uint256 paidTo = distributor.claim(to);
+
+        assertEq(paidTo, accruedTo, "the claim pays what was accrued (to)");
+        assertEq(rewardsToken.balanceOf(owner) - beforeTo, accruedTo, "the owner receives it (to)");
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 Withdraw
     //////////////////////////////////////////////////////////////*/
