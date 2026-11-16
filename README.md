@@ -41,7 +41,7 @@ Polaris's changes are on the `develop-polaris` branch. This branch was created f
 | `EscrowIVotesAdapterDecreasing` | [src/delegation/EscrowIVotesAdapterDecreasing.sol](src/delegation/EscrowIVotesAdapterDecreasing.sol) | New, adapted from Aragon's `EscrowIVotesAdapter` | Proxy (UUPS) |
 | `DelegationHelper` | [src/delegation/DelegationHelper.sol](src/delegation/DelegationHelper.sol) | Modified: adds `updateDelegateVotes` | Inherited by the adapter |
 | `ClockV1_2_0` | [src/clock/Clock_v1_2_0.sol](src/clock/Clock_v1_2_0.sol) | Modified: adds `nextCheckpointTs` | Proxy (UUPS) |
-| `LockV1_2_0` | [src/lock/Lock_v1_2_0.sol](src/lock/Lock_v1_2_0.sol) | Modified: adds onchain artwork, and records a lock's owner when it is burned | Proxy (UUPS) |
+| `LockDecreasing` | [src/lock/LockDecreasing.sol](src/lock/LockDecreasing.sol) | New, based on Aragon's `LockV1_2_0`: adds onchain artwork, and records a lock's owner when it is burned | Proxy (UUPS) |
 | `CurveConstantLib` | [src/libs/CurveConstantLibDecreasing.sol](src/libs/CurveConstantLibDecreasing.sol) | New | Library, used at deployment |
 | `RewardsDistributor` | [src/rewards/RewardsDistributor.sol](src/rewards/RewardsDistributor.sol) | New | Regular contract, one per Polaris branch |
 | `RewardsClaimAggregator` | [src/rewards/RewardsClaimAggregator.sol](src/rewards/RewardsClaimAggregator.sol) | New | Regular contract |
@@ -347,7 +347,7 @@ The lock NFT generates its metadata onchain:
 - `setDescriptor` changes the descriptor. It requires the new `LOCK_NFT_ART_UPDATE_ROLE`, which the DAO holds. Governance can therefore change the artwork through a proposal.
 - Polaris uses `PolarisNFTDescriptor` from the Polaris repository. The Polaris core NFTs use the same descriptor.
 
-The new `descriptor` storage variable reduced the storage gap from 48 to 47 slots. The mapping that records a burned lock's owner (section 6) reduced it to 46.
+`LockDecreasing` has a storage gap of 46 slots, against 48 in Aragon's `LockV1_2_0`. The `descriptor` variable and the mapping that records a burned lock's owner (section 6) each take one slot.
 
 ---
 
