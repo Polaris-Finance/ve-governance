@@ -482,6 +482,7 @@ contract DelegationHandler is StdUtils, StdCheats, CommonBase {
             ILockedBalanceIncreasing.LockedBalance memory toLocked = escrow.locked(toId);
 
             vm.assume(escrow.canMerge(fromLocked, toLocked));
+            vm.assume(!escrow.isLockExpiredAtNextCheckpoint(fromId));
 
             _transitionIfTooOld(delegatee);
         }
