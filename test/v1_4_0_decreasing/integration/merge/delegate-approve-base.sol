@@ -99,17 +99,17 @@ abstract contract TestMerge_ApproveDelegateBase is
         assertEq(ivotesAdapter.tokenIsDelegated(2), true);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
 
-        // Warp past maturation so locks can merge (different effective amounts but same start)
-        _warpPastMaturation();
-
+        // Both locks have the same start time, so merge is allowed
         // Charlie merges token 1 (undelegated) into token 2 (delegated)
         _approveCharlieAndMerge(1, 2);
 
         // Token 1 is burned, token 2 survives and remains delegated
         assertEq(ivotesAdapter.tokenIsDelegated(2), true);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
+        // Warp to the next checkpoint so the delegation is recorded
+        vm.warp(block.timestamp + 1 weeks);
         // Bob's voting power should reflect the combined amount
-        assertEq(ivotesAdapter.getVotes(bob), bias(totalAmount, maxTime));
+        assertEq(ivotesAdapter.getVotes(bob), bias(totalAmount, block.timestamp - checkpointTs));
 
         _removeDelegationAndAssert(2);
     }
@@ -145,7 +145,7 @@ abstract contract TestMerge_ApproveDelegateBase is
         uint256 bobVoteAtGauge = voter.votes(bob, gauge);
         assertEq(bobVoteAtGauge, ivotesAdapter.getVotes(bob));
 
-        // Both locks have the same start time, so merge is allowed without maturation
+        // Both locks have the same start time, so merge is allowed
         _approveCharlieAndMerge(1, 2);
 
         vm.warp(block.timestamp + 2 weeks);
@@ -186,8 +186,7 @@ abstract contract TestMerge_ApproveDelegateBase is
         assertEq(ivotesAdapter.tokenIsDelegated(2), false);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
 
-        _warpPastMaturation();
-
+        // Both locks have the same start time, so merge is allowed
         // Charlie merges token 1 (delegated) into token 2 (undelegated)
         _approveCharlieAndMerge(1, 2);
 
@@ -195,7 +194,9 @@ abstract contract TestMerge_ApproveDelegateBase is
         // (mergeDelegateVotes: from=delegated, to=undelegated -> to becomes delegated)
         assertEq(ivotesAdapter.tokenIsDelegated(2), true);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
-        assertEq(ivotesAdapter.getVotes(bob), bias(totalAmount, maxTime));
+        // Warp to the next checkpoint so the delegation is recorded
+        vm.warp(block.timestamp + 1 weeks);
+        assertEq(ivotesAdapter.getVotes(bob), bias(totalAmount, block.timestamp - checkpointTs));
 
         _removeDelegationAndAssert(2);
     }
@@ -213,8 +214,7 @@ abstract contract TestMerge_ApproveDelegateBase is
         assertEq(ivotesAdapter.tokenIsDelegated(2), true);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 2);
 
-        _warpPastMaturation();
-
+        // Both locks have the same start time, so merge is allowed
         // Charlie merges token 1 into token 2 (both delegated)
         _approveCharlieAndMerge(1, 2);
 
@@ -222,7 +222,9 @@ abstract contract TestMerge_ApproveDelegateBase is
         assertEq(ivotesAdapter.tokenIsDelegated(1), false);
         assertEq(ivotesAdapter.tokenIsDelegated(2), true);
         assertEq(ivotesAdapter.numberOfDelegatedTokens(alice), 1);
-        assertEq(ivotesAdapter.getVotes(bob), bias(totalAmount, maxTime));
+        // Warp to the next checkpoint so the delegation is recorded
+        vm.warp(block.timestamp + 1 weeks);
+        assertEq(ivotesAdapter.getVotes(bob), bias(totalAmount, block.timestamp - checkpointTs));
 
         _removeDelegationAndAssert(2);
     }

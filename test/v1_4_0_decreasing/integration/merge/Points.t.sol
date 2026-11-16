@@ -76,41 +76,19 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
     }
 
     function test_Merge_WhenMature_SameStartDate() public {
-        // 1. on `from` token point, bias and slope must become 0. `start` should stay the same and current timestamp updated.
-        // 2. on `to` token point, bias must be the sum of both token's maxed out values. Slope must be 0 as it's already maxed out.
-        // `start` should stay the same and current timestamp updated.
-        // 3. last global point must have slope 0 and bias as sum of both token's maxed out values.
-        // 4. Since both have the same end and is in the past, slopeChanges must still be the same of both slopes.
+        // Merging expired locks is forbidden, so we verify that the merge reverts
+        // once both locks have matured.
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
 
         uint256 lockStartTs = weekStartTs(block.timestamp);
 
         uint256 end = lockStartTs + maxTime;
-        int256 Lock_1_min = biasFP(Lock_1_Amount, end - lockStartTs - 1);
-        int256 Lock_2_min = biasFP(Lock_2_Amount, end - lockStartTs - 1);
 
         vm.warp(end + 1 hours);
+
+        vm.expectRevert(LockExpired.selector);
         escrow.merge(from, to);
-
-        uint256 mergeTs = weekStartTs(block.timestamp);
-
-        // 1
-        assertTokenPoint(from, 2, 0, 0, mergeTs);
-
-        // 2
-        // since merge occured in the different block than `createLock`,
-        // it should  cause extra epoch for user.
-        int256 totalSlopeFP = slopeFP(Lock_1_Amount + Lock_2_Amount);
-
-        assertTokenPoint(to, 2, 0, 0, mergeTs);
-
-        // 3
-        uint256 lastIndex = (block.timestamp - Lock_1_start) / checkpointInterval + 1;
-        assertGlobalPoint(lastIndex, 0, 0, mergeTs);
-
-        // 4
-        assertEq(slopeChanges(end), totalSlopeFP);
     }
 
     function testFuzz_Merge(
@@ -140,6 +118,8 @@ contract TestMerge_Points is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         vm.warp(_toLockTime);
         uint256 to = escrow.createLock(_lock2Amount, MAX_TIME);
         vm.warp(_mergeTime);
+        // Merging expired locks is forbidden, so skip cases where the lock has matured.
+        vm.assume(!escrow.isLockExpiredAtNextCheckpoint(from));
         escrow.merge(from, to);
 
         uint256 fromLockWeekTs = weekStartTs(_fromLockTime);

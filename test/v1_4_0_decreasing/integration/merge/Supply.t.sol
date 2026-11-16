@@ -75,32 +75,19 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
     }
 
     function test_Merge_WhenMature_SameStartDate() public {
-        // 1. total supply at current time must be sum of both token's maxed out values.
-        // 2. total supply at currentTime and `currentTime + X` must be the same(sum of maxed out values of both tokens)
+        // Merging expired locks is forbidden, so we verify that the merge reverts
+        // once both locks have matured.
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
 
         uint256 weekStartTs = weekStartTs(block.timestamp);
 
         uint256 end = weekStartTs + maxTime;
-        int256 Lock_1_min = biasFP(Lock_1_Amount, end - weekStartTs - 1);
-        int256 Lock_2_min = biasFP(Lock_2_Amount, end - weekStartTs - 1);
 
         vm.warp(end + 1 hours);
+
+        vm.expectRevert(LockExpired.selector);
         escrow.merge(from, to);
-
-        uint256 currentTs = block.timestamp;
-
-        uint256 fromLatestEpoch = curve.tokenPointLatestIndex(from);
-        assertEq(fromLatestEpoch, 2);
-
-        int256 currentTotalBiasFP = Lock_1_min + Lock_2_min;
-
-        // 1, 2
-        assertTotalSupply(end - 1, currentTotalBiasFP);
-        assertTotalSupply(end, 0);
-        assertTotalSupply(currentTs, 0);
-        assertTotalSupply(currentTs + 1, 0);
     }
 
     function testFuzz_Merge(
@@ -130,6 +117,8 @@ contract TestMerge_Supply is IEscrowCurveTokenStorage, IEscrowCurveGlobalStorage
         vm.warp(_toLockTime);
         uint256 to = escrow.createLock(_lock2Amount, MAX_TIME);
         vm.warp(_mergeTime);
+        // Merging expired locks is forbidden, so skip cases where the lock has matured.
+        vm.assume(!escrow.isLockExpiredAtNextCheckpoint(from));
         escrow.merge(from, to);
         vm.warp(block.timestamp + 1 weeks);
 
