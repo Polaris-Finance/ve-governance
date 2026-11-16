@@ -248,4 +248,20 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
         vm.expectRevert(abi.encodeWithSelector(CannotMerge.selector, nonPermanent, permanent));
         escrow.merge(nonPermanent, permanent);
     }
+
+    function test_shouldRevert_IfFromLockIsExpired() public {
+        uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
+        uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
+
+        // Both locks are created in the same week with MAX_TIME, so they share a start.
+        assertEq(escrow.locked(from).start, escrow.locked(to).start);
+
+        // Warp past the locks' end time. The NFTs still exist (not withdrawn), but both are expired.
+        vm.warp(uint256(escrow.locked(from).start) + MAX_TIME + 1 weeks);
+        assertTrue(escrow.isLockCurrentlyExpired(from), "from should be expired");
+        assertTrue(escrow.isLockCurrentlyExpired(to), "to should be expired");
+
+        vm.expectRevert();
+        escrow.merge(from, to);
+    }
 }
