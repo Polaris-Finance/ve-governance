@@ -142,9 +142,8 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
 
-        vm.warp(getEndTimestamp(startTime, block.timestamp, 1 seconds));
+        vm.warp(block.timestamp + 1 weeks);
 
-        // merge should become possible since both are mature
         assertEq(canMerge(startTime, startTime), true);
         escrow.merge(from, to);
 
@@ -162,7 +161,7 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
 
-        vm.warp(block.timestamp + maxTime);
+        vm.warp(block.timestamp + 1 weeks);
 
         // before merging, sender owns 2 tokens.
         assertEq(nftLock.balanceOf(address(this)), 2);
@@ -188,7 +187,7 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
 
-        vm.warp(block.timestamp + maxTime);
+        vm.warp(block.timestamp + 1 weeks);
         escrow.merge(from, to);
 
         LockedBalance memory locked = escrow.locked(to);
@@ -201,7 +200,7 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
     function test_MergedEventIsEmitted() public {
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
-        vm.warp(block.timestamp + maxTime);
+        vm.warp(block.timestamp + 1 weeks);
         vm.expectEmit();
 
         emit Merged(
@@ -249,7 +248,7 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
         escrow.merge(nonPermanent, permanent);
     }
 
-    function test_succeeds_IfLocksAreExpired() public {
+    function test_shouldRevert_IfLocksAreExpired() public {
         uint256 from = escrow.createLock(Lock_1_Amount, MAX_TIME);
         uint256 to = escrow.createLock(Lock_2_Amount, MAX_TIME);
 
@@ -261,8 +260,7 @@ contract TestEscrowMerge is IEscrowCurveTokenStorage, EscrowBase, IMergeEventsAn
         assertTrue(escrow.isLockCurrentlyExpired(from), "from should be expired");
         assertTrue(escrow.isLockCurrentlyExpired(to), "to should be expired");
 
-        // TODO: Should we allow this?
-        //vm.expectRevert();
+        vm.expectRevert(LockExpired.selector);
         escrow.merge(from, to);
     }
 

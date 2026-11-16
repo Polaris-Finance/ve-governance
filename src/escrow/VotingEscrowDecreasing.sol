@@ -624,6 +624,9 @@ contract VotingEscrowDecreasing is
             revert CannotMerge(_from, _to);
         }
 
+        // We only need to check one, as `canMerge` checks that they share the same timing
+        _requireLockNotExpired(oldLockedFrom);
+
         // We only allow merge when both tokens have the same owner.
         // After the merge, owner still should have the same voting power
         // as one token gets merged into another. For this reason,
