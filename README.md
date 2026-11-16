@@ -575,3 +575,17 @@ For example, for a new lock of 100 POLAR (100e18 wei), `votingPowerAt` returns 1
 #### Solution
 
 No fix is planned. No Polaris contract calls `getBias`. A reader that uses it should divide the result by 1e18, or use `votingPowerAt` instead.
+
+### G10 - The DAO's initialization can be front-run during deployment
+
+This issue is in the Polaris deploy script `AragonDeployer.s.sol`, in the Polaris repository, not in the ve-governance contracts.
+
+`_deployDAO` deploys the DAO behind an `ERC1967Proxy` with empty initialization data. It then calls the DAO's `initialize` in a separate transaction. `initialize` can only be called once, and it grants `ROOT_PERMISSION` to the address passed as `_initialOwner`. Between the two transactions, anyone can call `initialize` on the new proxy.
+
+For example, an attacker sees the deployer's `initialize` transaction in the mempool, and sends their own `initialize` call first, with themselves as `_initialOwner`. The attacker then holds `ROOT_PERMISSION` on the DAO. The deployer's `initialize` call reverts, because the DAO is already initialized.
+
+The deployment then fails, and the DAO at that address belongs to the attacker. This cannot go unnoticed, because the deployer's own `initialize` call reverts. The team would need to redeploy, and must not use that DAO, or any contract deployed with its address.
+
+#### Solution
+
+This will be fixed in the Polaris repository before deployment. The deploy script will pass the `initialize` calldata to the proxy's constructor, so that the DAO is created and initialized in the same transaction. `_deployEscrow` in the same script already deploys the escrow in this way.
