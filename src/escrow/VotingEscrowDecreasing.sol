@@ -8,7 +8,7 @@ import {
 import {
     IERC20MetadataUpgradeable as IERC20Metadata
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import {IERC721EnumerableMintableBurnable as IERC721EMB} from "@lock/IERC721EMB.sol";
+import {ILockDecreasing} from "@lock/ILockDecreasing.sol";
 
 // veGovernance
 import {IDAO} from "@aragon/osx-commons-contracts/src/dao/IDAO.sol";
@@ -262,14 +262,14 @@ contract VotingEscrowDecreasing is
     //////////////////////////////////////////////////////////////*/
 
     function isApprovedOrOwner(address _spender, uint256 _tokenId) public view returns (bool) {
-        return IERC721EMB(lockNFT).isApprovedOrOwner(_spender, _tokenId);
+        return ILockDecreasing(lockNFT).isApprovedOrOwner(_spender, _tokenId);
     }
 
     /// @notice Fetch all NFTs owned by an address by leveraging the ERC721Enumerable interface
     /// @param _owner Address to query
     /// @return tokenIds Array of token IDs owned by the address
     function ownedTokens(address _owner) public view returns (uint256[] memory tokenIds) {
-        IERC721EMB enumerable = IERC721EMB(lockNFT);
+        ILockDecreasing enumerable = ILockDecreasing(lockNFT);
         uint256 balance = enumerable.balanceOf(_owner);
         uint256[] memory tokens = new uint256[](balance);
         for (uint256 i = 0; i < balance; i++) {
@@ -308,7 +308,7 @@ contract VotingEscrowDecreasing is
     }
 
     function ownerOf(uint256 _tokenId) external view returns (address) {
-        return IERC721EMB(lockNFT).ownerOf(_tokenId);
+        return ILockDecreasing(lockNFT).ownerOf(_tokenId);
     }
 
     /// @return accountVotingPower The voting power of an account at the current block
@@ -329,7 +329,7 @@ contract VotingEscrowDecreasing is
         if (voter == address(0)) return false;
 
         // If token doesn't exist, it reverts.
-        address owner = IERC721EMB(lockNFT).ownerOf(_tokenId);
+        address owner = ILockDecreasing(lockNFT).ownerOf(_tokenId);
 
         // If token is not delegated, delegatee wouldn't exist, so we return false.
         bool isTokenDelegated = IEscrowIVotesAdapter(ivotesAdapter).tokenIsDelegated(_tokenId);
@@ -394,7 +394,7 @@ contract VotingEscrowDecreasing is
         _moveDelegateVotes(address(0), _to, newTokenId, lock);
 
         // mint the NFT before and emit the event to complete the lock
-        IERC721EMB(lockNFT).mint(_to, newTokenId);
+        ILockDecreasing(lockNFT).mint(_to, newTokenId);
 
         emit Deposit(_to, newTokenId, recordedStart, virtualStart, _duration, _value, totalLocked);
 
@@ -598,8 +598,8 @@ contract VotingEscrowDecreasing is
 
         if (_from == _to) revert SameNFT();
 
-        address ownerFrom = IERC721EMB(lockNFT).ownerOf(_from);
-        address ownerTo = IERC721EMB(lockNFT).ownerOf(_to);
+        address ownerFrom = ILockDecreasing(lockNFT).ownerOf(_from);
+        address ownerTo = ILockDecreasing(lockNFT).ownerOf(_to);
 
         // Both nfts must have the same owner.
         if (ownerFrom != ownerTo) revert NotSameOwner();
@@ -629,7 +629,7 @@ contract VotingEscrowDecreasing is
         uint256 recordedStart = IClock(clock).nextCheckpointTs();
 
         // Update for `_from`.
-        IERC721EMB(lockNFT).burn(_from);
+        ILockDecreasing(lockNFT).burn(_from);
         _locked[_from] = LockedBalanceDecreasing(LockedBalance(0, 0), 0);
         _checkpoint(_from, oldLockedFrom, LockedBalanceDecreasing(LockedBalance(0, oldLockedFrom.lockedBalance.start), recordedStart));
 
@@ -698,7 +698,7 @@ contract VotingEscrowDecreasing is
         locked_.recordedStart = recordedStart;
         _locked[newTokenId] = locked_;
         _checkpoint(newTokenId, LockedBalanceDecreasing(LockedBalance(0, 0), 0), locked_);
-        IERC721EMB(lockNFT).mint(owner, newTokenId);
+        ILockDecreasing(lockNFT).mint(owner, newTokenId);
 
         emit Split(_from, newTokenId, sender, amount1, amount2);
 
@@ -711,7 +711,7 @@ contract VotingEscrowDecreasing is
         // For some erc721, `ownerOf` reverts and for some,
         // it returns address(0). For safety, if it doesn't revert,
         // we also check if it's not address(0).
-        address owner = IERC721EMB(lockNFT).ownerOf(_tokenId);
+        address owner = ILockDecreasing(lockNFT).ownerOf(_tokenId);
         if (owner == address(0)) revert NoOwner();
 
         // Sender must either be approved or the owner.
@@ -769,7 +769,7 @@ contract VotingEscrowDecreasing is
         _moveDelegateVotes(owner, address(0), _tokenId, oldLocked);
 
         // Burn the NFT and transfer the tokens to the user
-        IERC721EMB(lockNFT).burn(_tokenId);
+        ILockDecreasing(lockNFT).burn(_tokenId);
 
         IERC20(token).safeTransfer(sender, value);
 
@@ -796,9 +796,9 @@ contract VotingEscrowDecreasing is
     /// @param _to the address to send the NFT to - must be a whitelisted address for transfers
     function sweepNFT(uint256 _tokenId, address _to) external nonReentrant auth(SWEEPER_ROLE) {
         // if the token id is not in the contract, revert
-        if (IERC721EMB(lockNFT).ownerOf(_tokenId) != address(this)) revert NothingToSweep();
+        if (ILockDecreasing(lockNFT).ownerOf(_tokenId) != address(this)) revert NothingToSweep();
 
-        IERC721EMB(lockNFT).transferFrom(address(this), _to, _tokenId);
+        ILockDecreasing(lockNFT).transferFrom(address(this), _to, _tokenId);
         emit SweepNFT(_to, _tokenId);
     }
 
