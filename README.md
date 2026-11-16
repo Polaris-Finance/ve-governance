@@ -41,7 +41,7 @@ Polaris's changes are on the `develop-polaris` branch. This branch was created f
 | `EscrowIVotesAdapterDecreasing` | [src/delegation/EscrowIVotesAdapterDecreasing.sol](src/delegation/EscrowIVotesAdapterDecreasing.sol) | New, adapted from Aragon's `EscrowIVotesAdapter` | Proxy (UUPS) |
 | `DelegationHelper` | [src/delegation/DelegationHelper.sol](src/delegation/DelegationHelper.sol) | Modified: adds `updateDelegateVotes` | Inherited by the adapter |
 | `ClockV1_2_0` | [src/clock/Clock_v1_2_0.sol](src/clock/Clock_v1_2_0.sol) | Modified: adds `nextCheckpointTs` | Proxy (UUPS) |
-| `LockV1_2_0` | [src/lock/Lock_v1_2_0.sol](src/lock/Lock_v1_2_0.sol) | Modified: adds onchain artwork | Proxy (UUPS) |
+| `LockV1_2_0` | [src/lock/Lock_v1_2_0.sol](src/lock/Lock_v1_2_0.sol) | Modified: adds onchain artwork, and records a lock's owner when it is burned | Proxy (UUPS) |
 | `CurveConstantLib` | [src/libs/CurveConstantLibDecreasing.sol](src/libs/CurveConstantLibDecreasing.sol) | New | Library, used at deployment |
 | `RewardsDistributor` | [src/rewards/RewardsDistributor.sol](src/rewards/RewardsDistributor.sol) | New | Regular contract, one per Polaris branch |
 | `RewardsClaimAggregator` | [src/rewards/RewardsClaimAggregator.sol](src/rewards/RewardsClaimAggregator.sol) | New | Regular contract |
@@ -215,6 +215,7 @@ Aragon's increasing escrow has none of these four functions.
 - Both locks must have the same owner. The caller must be the owner, or be approved for both NFTs.
 - Both locks must have the same `start`. Since `start` is the virtual start, two locks with the same `start` also have the same end date. Two permanent locks can merge, because both have `start == 0`.
 - The `from` NFT is burned, and its amount is added to `to`.
+- Rewards that `from` earned before the merge do not move to `to`. They stay claimable by the owner (section 6).
 
 Aragon also allows two locks to merge once both have reached maturity. Polaris only allows merging when `start` is equal.
 
@@ -234,6 +235,7 @@ As a result, a lock cannot be changed, delegated by token ID, or withdrawn durin
 - The lock must have expired at the current time.
 - The caller must be the owner or an approved address. The caller receives the tokens.
 - The NFT is burned, and the lock is removed from its delegate.
+- Rewards the lock earned before the withdrawal stay claimable by its owner (section 6).
 
 A permanent lock never expires. To withdraw it, the owner must first call `unlockPermanent`, and then wait 208 weeks.
 
@@ -327,8 +329,10 @@ Both voting powers are read at the start of week `w`. Weeks with zero total voti
 - The caller must be the owner of the lock, or be approved for it.
 - Rewards are computed from each lock's own voting power. Delegating a lock does not change who receives its rewards.
 - When a lock NFT is transferred, its unclaimed rewards stay with it, and the new owner can claim them.
+- When a lock is burned by `withdraw` or `merge`, the rewards it earned before the burn stay claimable. Only the address that owned the lock when it was burned can claim them. `lastOwnerOf(tokenId)` on the lock NFT returns that address.
+- A burned lock is no longer listed among its owner's NFTs. A front-end can find it from the escrow's `Withdraw` and `Merged` events.
 
-`RewardsClaimAggregator` claims from several distributors in one call, for example from every branch. Each distributor checks that its caller is approved for the lock. So the owner must first approve the aggregator for their NFTs. The aggregator sends the rewards to the account that called it.
+`RewardsClaimAggregator` claims from several distributors in one call, for example from every branch. Each distributor checks that its caller is approved for the lock. So the owner must first approve the aggregator for their NFTs. The aggregator sends the rewards to the account that called it. It cannot claim for a burned lock, because approvals end when a lock is burned (G1).
 
 ---
 
@@ -341,7 +345,7 @@ The lock NFT generates its metadata onchain:
 - `setDescriptor` changes the descriptor. It requires the new `LOCK_NFT_ART_UPDATE_ROLE`, which the DAO holds. Governance can therefore change the artwork through a proposal.
 - Polaris uses `PolarisNFTDescriptor` from the Polaris repository. The Polaris core NFTs use the same descriptor.
 
-The new `descriptor` storage variable reduced the storage gap from 48 to 47 slots.
+The new `descriptor` storage variable reduced the storage gap from 48 to 47 slots. The mapping that records a burned lock's owner (section 6) reduced it to 46.
 
 ---
 
@@ -440,22 +444,13 @@ These commands do not run the fork test in `test/v1_4_0_decreasing/fork`.
 
 This section lists known issues in Polaris's ve-governance contracts. 
 
-### G1 - Withdrawing or merging a lock loses its unclaimed rewards
+### G1 - `RewardsClaimAggregator` cannot claim for a withdrawn or merged lock
 
-Each `RewardsDistributor` pays rewards per lock. A holder claims them with `claim(tokenId)`, which checks that the caller owns the lock or is approved for it.
-
-`withdraw` and `merge` burn a lock NFT, and neither claims its rewards first. After the burn, the distributor can no longer pay that lock's rewards:
-
-- `claimable` returns 0, because the lock's amount is now zero.
-- `claim` reverts, because the NFT no longer exists, so nobody owns it or is approved for it.
-
-Example: Alice's lock earns rewards every week, but she has not claimed for six months. Her lock expires and she calls `withdraw`. She receives her POLAR, but her six months of debt asset rewards stay in each distributor permanently. The same happens to the `from` lock when she merges it into another lock. The distributor has no function to recover these funds.
+Only the address that owned a lock when it was burned can claim its remaining rewards (section 6). Approvals end with the burn, so the aggregator reverts for a burned lock. The owner claims from each distributor directly.
 
 #### Solution
 
-No contract fix is planned. A fix would need `withdraw` and `merge` to claim from every distributor before burning the lock. A revert in any distributor would then block users from withdrawing their POLAR. A single claim also covers at most 52 weeks.
-
-Instead, the front-end should claim all of a lock's rewards before it lets the user withdraw or merge that lock, for example with `RewardsClaimAggregator`. The merge case is also noted in a warning at the top of [RewardsDistributor.sol](src/rewards/RewardsDistributor.sol).
+No fix is planned. No rewards are lost.
 
 ### G2 - A lock NFT sent to the escrow cannot be recovered
 
