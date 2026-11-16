@@ -189,5 +189,6 @@ contract LockV1_2_0 is ILock, ERC721Enumerable, UUPSUpgradeable, DaoAuthorizable
 
     /// @dev Reserved storage space to allow for layout changes in the future.
     /// @dev Reduced from 48 -> 47 when `descriptor` was added (upgrade-safe: new var takes a gap slot).
+    /// @dev Reduced from 47 -> 46 when `_lastOwner` was added (upgrade-safe: new var takes a gap slot).
     uint256[46] private __gap;
 }
