@@ -4,6 +4,9 @@ pragma solidity ^0.8.0;
 import "./IClock.sol";
 
 interface IClockV1_2_0 is IClock {
+    function nextCheckpointTs() external view returns (uint256);
+    function nextCheckpointTs(uint256 timestamp) external view returns (uint256);
+
     function epochPrevCheckpointTs() external view returns (uint256);
 
     function resolveEpochPrevCheckpointTs(uint256 timestamp) external pure returns (uint256);

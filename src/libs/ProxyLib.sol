@@ -22,7 +22,7 @@ library ProxyLib {
         address _logic,
         bytes memory _initCalldata
     ) internal returns (address uupsProxy) {
-        uupsProxy = address(new ERC1967Proxy({_logic: _logic, _data: _initCalldata}));
+        uupsProxy = address(new ERC1967Proxy(_logic, _initCalldata));
     }
 
     /// @notice Creates an [ERC-1167](https://eips.ethereum.org/EIPS/eip-1167) minimal proxy contract, also known as clones, pointing to a logic contract and allows to immediately initialize it.
