@@ -552,7 +552,7 @@ contract VotingEscrowDecreasing is
 
     function _requireLockNotExpired(LockedBalanceDecreasing memory _lock, uint256 _nextEffectiveStart, uint256 _maxTime) internal pure returns (uint256) {
         uint256 start = _lock.lockedBalance.start;
-        if (_isLockExpired(start, _nextEffectiveStart, _maxTime)) revert LockExpired();
+        if (_isLockExpired(start, _nextEffectiveStart, _maxTime, _lock.lockedBalance.amount)) revert LockExpired();
 
         // return value is only used for non permanent locks
         return start + _maxTime;
@@ -560,19 +560,26 @@ contract VotingEscrowDecreasing is
 
     // When withdrawing, we want to check current timestamp, not next checkpoint
     function isLockCurrentlyExpired(uint256 _tokenId) public view returns (bool) {
-        uint256 start = _locked[_tokenId].lockedBalance.start;
+        LockedBalanceDecreasing memory locked_ = _locked[_tokenId];
+        uint256 start = locked_.lockedBalance.start;
         uint256 maxTime = IEscrowCurve(curve).maxTime();
-        return _isLockExpired(start, block.timestamp, maxTime);
+        uint256 amount = locked_.lockedBalance.amount;
+        return _isLockExpired(start, block.timestamp, maxTime, amount);
     }
 
     function isLockExpiredAtNextCheckpoint(uint256 _tokenId) external view returns (bool) {
-        uint256 start = _locked[_tokenId].lockedBalance.start;
+        LockedBalanceDecreasing memory locked_ = _locked[_tokenId];
+        uint256 start = locked_.lockedBalance.start;
         uint256 nextEffectiveStart = IClock(clock).nextCheckpointTs();
         uint256 maxTime = IEscrowCurve(curve).maxTime();
-        return _isLockExpired(start, nextEffectiveStart, maxTime);
+        uint256 amount = locked_.lockedBalance.amount;
+        return _isLockExpired(start, nextEffectiveStart, maxTime, amount);
     }
 
-    function _isLockExpired(uint256 _start, uint256 _when, uint256 _maxTime) internal pure returns (bool) {
+    function _isLockExpired(uint256 _start, uint256 _when, uint256 _maxTime, uint256 _amount) internal pure returns (bool) {
+        // Burnt or non-existent locks
+        if (_amount == 0) return true;
+
         // Permanent locks
         if (_start == 0) return false;
 
