@@ -192,6 +192,6 @@ contract RewardsDistributor is IRewardsDistributor {
     }
 
     function _requireApprovedOrOwner(uint256 _tokenId) internal view {
-        if (!ve.isApprovedOrOwner(msg.sender, _tokenId)) revert NotApprovedOrOwner();
+        if (!ve.isApprovedOrOwnerOrWasOwner(msg.sender, _tokenId)) revert NotApprovedOrOwner();
     }
 }
