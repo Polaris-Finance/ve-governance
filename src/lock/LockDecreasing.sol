@@ -150,6 +150,10 @@ contract LockDecreasing is ILockDecreasing, ERC721Enumerable, UUPSUpgradeable, D
     //////////////////////////////////////////////////////////////*/
 
     function isApprovedOrOwner(address _spender, uint256 _tokenId) external view returns (bool) {
+        return _isApprovedOrOwner(_spender, _tokenId);
+    }
+
+    function isApprovedOrOwnerOrWasOwner(address _spender, uint256 _tokenId) external view returns (bool) {
         if (_exists(_tokenId)) return _isApprovedOrOwner(_spender, _tokenId);
 
         // Burned tokens keep their last owner so accrued rewards can still be claimed.

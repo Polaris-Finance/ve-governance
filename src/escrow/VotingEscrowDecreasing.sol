@@ -265,6 +265,10 @@ contract VotingEscrowDecreasing is
         return ILockDecreasing(lockNFT).isApprovedOrOwner(_spender, _tokenId);
     }
 
+    function isApprovedOrOwnerOrWasOwner(address _spender, uint256 _tokenId) public view returns (bool) {
+        return ILockDecreasing(lockNFT).isApprovedOrOwnerOrWasOwner(_spender, _tokenId);
+    }
+
     /// @notice Fetch all NFTs owned by an address by leveraging the ERC721Enumerable interface
     /// @param _owner Address to query
     /// @return tokenIds Array of token IDs owned by the address

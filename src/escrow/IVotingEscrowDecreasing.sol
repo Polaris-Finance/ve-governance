@@ -131,6 +131,7 @@ interface IVotingEscrowCore is
 
     /// @notice helper utility for NFT checks
     function isApprovedOrOwner(address spender, uint256 tokenId) external view returns (bool);
+    function isApprovedOrOwnerOrWasOwner(address spender, uint256 tokenId) external view returns (bool);
 }
 
 /*///////////////////////////////////////////////////////////////
